@@ -4,9 +4,8 @@ Updated: 2026-07-25.
 
 ## Current status
 
-WOP-003 is implemented in a review branch. The repository has a strict
-TypeScript npm workspace, automated quality gates, CI, and intentionally empty
-application and package boundaries. No product behavior exists yet.
+WOP-003 was merged through pull request #2. WOP-101 is active in GitHub issue
+#3 and branch `agent/secret-safe-setup`.
 
 ## Decisions made
 
@@ -37,6 +36,9 @@ application and package boundaries. No product behavior exists yet.
   tests, and builds across the workspace.
 - The API, worker, console, domain, and contracts boundaries contain no
   speculative behavior.
+- Pull request #2 passed CI, was reviewed, and merged into `main`.
+- WOP-101 uses Fastify, Vite with React, Drizzle, PostgreSQL, Zod, and Node.js
+  AES-256-GCM encryption for the first end-to-end setup slice.
 
 ## Naming record
 
@@ -45,5 +47,5 @@ FlowRelay, RunTrace, SignalDock, Eventrail, Hooktrail, and Retrylane.
 
 ## Next action
 
-Review and merge the draft pull request for WOP-003. After that, define WOP-101
-as the next public issue before implementing endpoint and destination setup.
+Implement GitHub issue #3 only: secret-safe endpoint and destination setup
+without webhook ingestion, delivery, queues, or retries.

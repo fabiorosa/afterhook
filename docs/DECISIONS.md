@@ -41,3 +41,21 @@ post-MVP decision.
 The first release proves reliable deterministic workflow execution. AI may
 appear later only as one bounded step with structured output, evaluation, and
 human approval. The project is not positioned as an AI agent product.
+
+## ADR-006: Separate Fastify API and Vite React console
+
+**Status:** accepted.
+
+WOP-101 uses Fastify for the HTTP API and Vite with React for the operations
+console. The API owns validation and secret-safe responses. The console remains
+a separate client of that contract. This preserves the runtime boundary needed
+by the later worker without introducing independent deployment units.
+
+Drizzle defines the PostgreSQL schema and migrations, while the `postgres`
+driver provides the database connection. Zod validates external input.
+Node.js cryptography provides AES-256-GCM encryption, so secret storage does not
+require an additional cryptography framework.
+
+The console uses authored CSS and design tokens instead of a component
+framework. This keeps the first interface small and makes its accessibility,
+responsive behavior, and visual decisions explicit.
