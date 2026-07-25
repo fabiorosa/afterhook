@@ -1,14 +1,10 @@
 node_modules/
 dist/
+coverage/
+*.tsbuildinfo
 .env
 .env.*
 !.env.example
-coverage/
-*.tsbuildinfo
-dist/
-coverage/
-.env
-.env.local
 *.log
 .DS_Store
 .idea/
