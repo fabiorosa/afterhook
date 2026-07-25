@@ -8,8 +8,22 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-Product specification only. No application code exists yet. Development starts
-from the public backlog and preserves each reviewable phase in Git history.
+The TypeScript quality foundation is in place. Product behavior begins with the
+first vertical slice in the public backlog.
+
+## Local development
+
+AfterHook requires Node.js 22 or later and npm.
+
+```bash
+npm ci
+npm run quality
+```
+
+The quality command checks formatting, lint, strict TypeScript, tests, and
+production builds across the workspace. The API, worker, console, domain, and
+shared contract boundaries are intentionally empty until a product slice needs
+them.
 
 ## First release
 

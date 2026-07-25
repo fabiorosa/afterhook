@@ -4,8 +4,9 @@ Updated: 2026-07-25.
 
 ## Current status
 
-Product specification complete and published at
-`https://github.com/fabiorosa/afterhook`. No application code exists.
+WOP-003 is implemented in a review branch. The repository has a strict
+TypeScript npm workspace, automated quality gates, CI, and intentionally empty
+application and package boundaries. No product behavior exists yet.
 
 ## Decisions made
 
@@ -30,7 +31,12 @@ Product specification complete and published at
 - The first public commit contains documentation only. Repository topics
   describe TypeScript, webhooks, event-driven work, observability, BullMQ,
   PostgreSQL, open source, and developer tooling.
-- GitHub issue #1 defines WOP-003 as the next isolated phase.
+- GitHub issue #1 defines WOP-003 as an isolated quality-foundation phase.
+- Node.js 22 is the documented runtime baseline.
+- The root `npm run quality` command checks formatting, lint, strict types,
+  tests, and builds across the workspace.
+- The API, worker, console, domain, and contracts boundaries contain no
+  speculative behavior.
 
 ## Naming record
 
@@ -39,6 +45,5 @@ FlowRelay, RunTrace, SignalDock, Eventrail, Hooktrail, and Retrylane.
 
 ## Next action
 
-Complete GitHub issue #1 and WOP-003 only: add the TypeScript workspace and
-automated quality foundation without implementing webhook ingestion or product
-features.
+Review and merge the draft pull request for WOP-003. After that, define WOP-101
+as the next public issue before implementing endpoint and destination setup.
