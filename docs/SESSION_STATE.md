@@ -4,8 +4,8 @@ Updated: 2026-07-25.
 
 ## Current status
 
-Product specification complete. Public repository foundation is ready for its
-first commit. No application code exists.
+Product specification complete and published at
+`https://github.com/fabiorosa/afterhook`. No application code exists.
 
 ## Decisions made
 
@@ -27,6 +27,10 @@ first commit. No application code exists.
 - WOP-002 contains the README, MIT license, agent entry points, product brief,
   MVP scope, architecture, decisions, testing strategy, executable backlog, and
   session state required for the public foundation.
+- The first public commit contains documentation only. Repository topics
+  describe TypeScript, webhooks, event-driven work, observability, BullMQ,
+  PostgreSQL, open source, and developer tooling.
+- GitHub issue #1 defines WOP-003 as the next isolated phase.
 
 ## Naming record
 
@@ -35,5 +39,6 @@ FlowRelay, RunTrace, SignalDock, Eventrail, Hooktrail, and Retrylane.
 
 ## Next action
 
-Complete WOP-003 only: add the TypeScript workspace and automated quality
-foundation without implementing webhook ingestion or product features.
+Complete GitHub issue #1 and WOP-003 only: add the TypeScript workspace and
+automated quality foundation without implementing webhook ingestion or product
+features.

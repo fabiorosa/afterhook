@@ -8,8 +8,8 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-Product specification only. No application code exists yet. The public
-repository is the next delivery step.
+Product specification only. No application code exists yet. Development starts
+from the public backlog and preserves each reviewable phase in Git history.
 
 ## First release
 

@@ -11,7 +11,7 @@ Status values: `todo`, `active`, `done`.
 | --- | --- | --- |
 | WOP-001 | Select final name, verify GitHub and npm availability, approve one-sentence positioning | done |
 | WOP-002 | Create public repository with README, license, agent contract, product brief, scope, architecture, decisions, testing, backlog, and session state | done |
-| WOP-003 | Add TypeScript workspace, formatting, lint, typecheck, Vitest, CI, and empty package boundaries | active |
+| WOP-003 | Add TypeScript workspace, formatting, lint, typecheck, Vitest, CI, and empty package boundaries. GitHub #1 | active |
 
 **Gate:** the repository is public, the product can be understood without code,
 CI is green, and the next ticket is a single vertical capability.
