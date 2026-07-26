@@ -20,7 +20,7 @@ CI is green, and the next ticket is a single vertical capability.
 
 | ID      | Ticket                                                                       | Status |
 | ------- | ---------------------------------------------------------------------------- | ------ |
-| WOP-101 | Create endpoint and destination records with secret-safe setup UX. GitHub #3 | active |
+| WOP-101 | Create endpoint and destination records with secret-safe setup UX. GitHub #3 | done   |
 | WOP-102 | Accept signed JSON with timestamp, size, and idempotency validation          | todo   |
 | WOP-103 | Persist one authoritative event and append its initial activity              | todo   |
 | WOP-104 | Show event list and event detail with received-state timeline                | todo   |

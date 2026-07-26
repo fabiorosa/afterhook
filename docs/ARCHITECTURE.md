@@ -130,6 +130,10 @@ before the MVP release.
 - `created_at`
 - `updated_at`
 
+WOP-101 implements this record with a generated UUID, generated unique slug,
+AES-256-GCM `secret_encrypted` envelope, and a truncated SHA-256 fingerprint.
+The response projection deliberately omits the encrypted material.
+
 ### destinations
 
 - `id`
@@ -139,6 +143,10 @@ before the MVP release.
 - `enabled`
 - `created_at`
 - `updated_at`
+
+WOP-101 implements this record with an optional AES-256-GCM
+`authorization_encrypted` envelope. Its response projection exposes only the
+boolean `hasAuthorization`.
 
 ### events
 

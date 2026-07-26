@@ -1,6 +1,6 @@
 # Session state
 
-Updated: 2026-07-25.
+Updated: 2026-07-26.
 
 ## Completed and validated
 
@@ -12,34 +12,31 @@ Updated: 2026-07-25.
 - Pull request #2 passed local and GitHub quality gates, received a manual diff
   review, and merged into `main`.
 - `npm audit` reported zero known vulnerabilities when WOP-003 merged.
-- GitHub issue #3 defines WOP-101 as the active vertical slice.
-- Branch `agent/secret-safe-setup` contains and publishes commit `b0b4860`,
-  which activates WOP-101 and records ADR-006.
+- WOP-101 implements Zod setup contracts, framework-independent secret
+  generation, SHA-256 fingerprints, and versioned AES-256-GCM envelopes.
+- Drizzle migration `0000_windy_saracen` creates PostgreSQL endpoint and
+  destination records with encrypted secret and authorization columns.
+- Fastify safely creates and lists records. Endpoint secrets appear only in a
+  creation response; list responses never include encrypted material.
+- The Vite React console provides setup, empty, validation, success, copy,
+  secret-dismissed, responsive, and error states.
+- Unit, Fastify, PostgreSQL, and Chromium setup tests pass locally.
 
 ## In progress
 
-WOP-101 is in its documented architecture stage. No endpoint, destination,
-database, API, encryption, or console behavior has been implemented yet.
+No ticket is currently active. WOP-102 is the next backlog item after review.
 
 Active public work:
 
-- issue: `https://github.com/fabiorosa/afterhook/issues/3`;
+- issue: `https://github.com/fabiorosa/afterhook/issues/3` (pending draft PR);
 - branch: `agent/secret-safe-setup`;
 - latest commit: `b0b4860 docs: define secret-safe setup slice`;
 - local branch is synchronized with its remote.
 
 ## Pending work
 
-1. Add only the dependencies required by WOP-101.
-2. Define endpoint and destination runtime contracts with Zod.
-3. Implement secret generation, fingerprinting, and AES-256-GCM encryption as
-   framework-independent code with tests.
-4. Add PostgreSQL schema, migrations, repositories, and real integration tests.
-5. Add Fastify create and list contracts with safe response shapes.
-6. Build the Vite React setup experience with complete empty, validation,
-   success, copy, secret-dismissed, keyboard, and responsive states.
-7. Update README and architecture evidence, then run every quality gate.
-8. Publish reviewable commits and a draft pull request that closes issue #3.
+1. Review and merge the WOP-101 draft PR.
+2. Begin WOP-102 only after WOP-101 is merged.
 
 ## Decisions
 
@@ -71,8 +68,7 @@ asking Fabio for implementation decisions.
 
 ## Next step
 
-Implement the WOP-101 contracts and secret-handling domain boundary first,
-with tests, before adding persistence or UI.
+Review WOP-101. Do not extend it into webhook ingestion or delivery behavior.
 
 ## Pending validation
 

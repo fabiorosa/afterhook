@@ -59,3 +59,18 @@ require an additional cryptography framework.
 The console uses authored CSS and design tokens instead of a component
 framework. This keeps the first interface small and makes its accessibility,
 responsive behavior, and visual decisions explicit.
+
+## ADR-007: Versioned AES-256-GCM secret envelopes
+
+**Status:** accepted.
+
+WOP-101 encrypts endpoint signing secrets and destination authorization values
+with Node.js AES-256-GCM using a 32-byte key supplied through
+`SECRET_ENCRYPTION_KEY`. The stored text is a versioned envelope containing the
+random IV, authentication tag, and ciphertext. This permits authenticated
+decryption without storing plaintext.
+
+A separate truncated SHA-256 fingerprint is stored for the endpoint secret so
+operators can distinguish a revealed secret without seeing it again. The
+fingerprint is not accepted as a credential and is never used for signature
+verification.

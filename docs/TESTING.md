@@ -19,6 +19,10 @@
 - destination URL and SSRF policy;
 - safe error mapping.
 
+WOP-101 adds deterministic coverage for Zod setup contracts, slug validation,
+server-side secret generation, secret fingerprinting, AES-256-GCM round trips,
+tamper rejection, and safe Fastify response shapes.
+
 ## PostgreSQL integration tests
 
 - same key and same digest returns the existing event;
@@ -29,6 +33,10 @@
 - completed attempts cannot be rewritten;
 - manual retry appends a new attempt;
 - event filters remain stable under pagination.
+
+WOP-101 runs a real PostgreSQL migration before its repository tests. Those
+tests assert that endpoint secrets and destination authorization values are
+stored encrypted and that list projections do not expose them.
 
 ## Redis and worker integration tests
 
@@ -63,6 +71,10 @@ One Playwright MVP walkthrough:
 
 Repeat the critical inspection and retry path with keyboard navigation and a
 mobile viewport.
+
+WOP-101 adds a Chromium setup journey: create endpoint, copy and dismiss the
+one-time secret, create a destination with authorization, and confirm the
+console only communicates encrypted authorization metadata.
 
 ## Static gates
 
