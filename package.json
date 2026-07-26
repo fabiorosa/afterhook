@@ -16,12 +16,15 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
-    "quality": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "quality": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run test:integration && npm run build && npm run test:browser",
     "test": "vitest run --passWithNoTests",
+    "test:integration": "npm --workspace @afterhook/api run db:migrate && vitest --config vitest.integration.config.ts",
+    "test:browser": "playwright test --config playwright.config.mjs",
     "typecheck": "tsc --build --pretty false"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.0",
     "@types/node": "^22.20.1",
     "eslint": "^10.8.0",
     "prettier": "^3.9.6",

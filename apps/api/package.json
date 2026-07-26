@@ -2,5 +2,20 @@
   "name": "@afterhook/api",
   "version": "0.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "@afterhook/contracts": "0.0.0",
+    "@afterhook/domain": "0.0.0",
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.10.0",
+    "postgres": "^3.4.9"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "drizzle-kit": "^0.31.10"
+  }
 }
