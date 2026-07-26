@@ -28,9 +28,10 @@ No ticket is currently active. WOP-102 is the next backlog item after review.
 
 Active public work:
 
-- issue: `https://github.com/fabiorosa/afterhook/issues/3` (pending draft PR);
+- issue: `https://github.com/fabiorosa/afterhook/issues/3`;
+- draft PR: `https://github.com/fabiorosa/afterhook/pull/4`;
 - branch: `agent/secret-safe-setup`;
-- latest commit: `b0b4860 docs: define secret-safe setup slice`;
+- latest commit: `2637a83 feat: add secret-safe setup console`;
 - local branch is synchronized with its remote.
 
 ## Pending work
@@ -72,43 +73,13 @@ Review WOP-101. Do not extend it into webhook ingestion or delivery behavior.
 
 ## Pending validation
 
-No WOP-101 behavior exists yet. Validate each new boundary locally and run the
-root quality command before every published milestone.
+`npm run quality` passed on 2026-07-26 with PostgreSQL integration and
+Chromium browser coverage. Await review of draft PR #4.
 
 ## Continuation prompt
 
 ```text
-Continue AfterHook from WOP-101, the first functional vertical slice. The
-quality foundation is merged; issue #3 and branch
-agent/secret-safe-setup are active, but no product behavior exists yet.
-
-Read first:
-- AGENTS.md
-- docs/SESSION_STATE.md
-- docs/SCOPE.md
-- docs/ARCHITECTURE.md
-- docs/DECISIONS.md
-- docs/TESTING.md
-- docs/BACKLOG.md
-- ../CAREER_CONTEXT.md
-- ../PORTFOLIO_PROJECT_STANDARD.md
-
-Work only on GitHub issue #3. Start with the runtime contracts and
-framework-independent secret boundary. Add Zod contracts, server-side secret
-generation, a safe fingerprint, AES-256-GCM encryption/decryption, and
-regression tests. Then continue through PostgreSQL, Fastify, and the React
-console in reviewable commits. Do not implement webhook ingestion, delivery,
-queues, retries, accounts, or deployment.
-
-Execution is autonomous from start to finish. Do not ask questions that can be
-answered by inspecting the repository, issue, or session state. Collect only
-genuinely blocking questions and ask them at the end. Validate behavior rather
-than treating code presence as completion. Keep the public history truthful,
-update docs with delivered behavior, push the branch, and open a draft pull
-request only when the complete WOP-101 slice is reviewable.
-
-For UI work, load gosto-de-design and vicios-de-design before designing. Use a
-dark premium operations interface with one restrained accent, generous
-spacing, complete interaction states, authored SVG where icons are necessary,
-and no emoji.
+Review draft PR #4 for WOP-101. If it is merged, select the next single
+backlog ticket before changing product behavior. Preserve the explicit
+non-goals around ingestion, delivery, queues, retries, accounts, and deploy.
 ```
