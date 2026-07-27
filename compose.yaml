@@ -1,0 +1,14 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: afterhook
+      POSTGRES_PASSWORD: afterhook
+      POSTGRES_USER: afterhook
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U afterhook -d afterhook"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    ports:
+      - "54329:5432"
