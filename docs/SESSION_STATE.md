@@ -1,6 +1,6 @@
 # Session state
 
-Updated: 2026-07-26.
+Updated: 2026-07-27.
 
 ## Completed and validated
 
@@ -21,6 +21,8 @@ Updated: 2026-07-26.
 - The Vite React console provides setup, empty, validation, success, copy,
   secret-dismissed, responsive, and error states.
 - Unit, Fastify, PostgreSQL, and Chromium setup tests pass locally.
+- The clean-checkout CI regression is fixed with source-level workspace paths,
+  explicit API project references, and a clean-before-lint quality gate.
 
 ## In progress
 
@@ -31,7 +33,6 @@ Active public work:
 - issue: `https://github.com/fabiorosa/afterhook/issues/3`;
 - draft PR: `https://github.com/fabiorosa/afterhook/pull/4`;
 - branch: `agent/secret-safe-setup`;
-- latest commit: `2637a83 feat: add secret-safe setup console`;
 - local branch is synchronized with its remote.
 
 ## Pending work
@@ -73,8 +74,8 @@ Review WOP-101. Do not extend it into webhook ingestion or delivery behavior.
 
 ## Pending validation
 
-`npm run quality` passed on 2026-07-26 with PostgreSQL integration and
-Chromium browser coverage. Await review of draft PR #4.
+The clean-checkout regression passes locally on 2026-07-27. Draft PR #4 must
+retain green GitHub Actions checks before review or merge.
 
 ## Continuation prompt
 

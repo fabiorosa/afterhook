@@ -79,6 +79,8 @@ console only communicates encrypted authorization metadata.
 ## Static gates
 
 - TypeScript strict typecheck.
+- Clean generated build outputs before lint so workspace type resolution is
+  verified from source in local and CI environments.
 - ESLint with no unexplained disable comments.
 - Formatting check.
 - Secret scan.
