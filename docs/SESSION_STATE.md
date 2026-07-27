@@ -23,6 +23,8 @@ Updated: 2026-07-27.
 - Unit, Fastify, PostgreSQL, and Chromium setup tests pass locally.
 - The clean-checkout CI regression is fixed with source-level workspace paths,
   explicit API project references, and a clean-before-lint quality gate.
+- GitHub Actions installs the pinned Playwright Chromium runtime before running
+  browser coverage on Linux.
 
 ## In progress
 

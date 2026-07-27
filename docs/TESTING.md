@@ -81,6 +81,7 @@ console only communicates encrypted authorization metadata.
 - TypeScript strict typecheck.
 - Clean generated build outputs before lint so workspace type resolution is
   verified from source in local and CI environments.
+- Install the Playwright Chromium runtime explicitly on fresh CI runners.
 - ESLint with no unexplained disable comments.
 - Formatting check.
 - Secret scan.
