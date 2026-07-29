@@ -115,6 +115,7 @@ export const ingestionErrorSchema = z.object({
     "ENDPOINT_NOT_FOUND",
     "SIGNATURE_REJECTED",
     "PAYLOAD_TOO_LARGE",
+    "INTERNAL_ERROR",
   ]),
   message: z.string(),
 });

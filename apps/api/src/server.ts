@@ -40,7 +40,8 @@ function ingestionError(
     | "INVALID_REQUEST"
     | "ENDPOINT_NOT_FOUND"
     | "SIGNATURE_REJECTED"
-    | "PAYLOAD_TOO_LARGE",
+    | "PAYLOAD_TOO_LARGE"
+    | "INTERNAL_ERROR",
   message: string,
 ) {
   return ingestionErrorSchema.parse({ error, message });
@@ -129,10 +130,7 @@ export function buildServer(
     return reply
       .code(500)
       .send(
-        ingestionError(
-          "INVALID_REQUEST",
-          "The request could not be processed.",
-        ),
+        ingestionError("INTERNAL_ERROR", "The request could not be processed."),
       );
   });
 

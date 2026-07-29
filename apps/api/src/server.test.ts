@@ -215,4 +215,30 @@ describe("ingestion HTTP contract", () => {
     expect(wrongMediaType.statusCode).toBe(415);
     expect(oversized.statusCode).toBe(413);
   });
+
+  it("classifies unexpected failures without exposing their cause", async () => {
+    const failingRepository: SetupRepository = {
+      ...createRepository(),
+      findIngestionEndpoint: () =>
+        Promise.reject(
+          new Error("database connection includes private detail"),
+        ),
+    };
+    const failingApp = buildServer(failingRepository, {
+      now: () => webhookNow,
+    });
+    const response = await failingApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+
+    expect(response.statusCode).toBe(500);
+    expect(response.json()).toEqual({
+      error: "INTERNAL_ERROR",
+      message: "The request could not be processed.",
+    });
+    expect(response.body).not.toContain("private detail");
+  });
 });
