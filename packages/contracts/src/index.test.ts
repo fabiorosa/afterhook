@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { createDestinationInputSchema, endpointSlugSchema } from "./index.js";
+import {
+  createDestinationInputSchema,
+  endpointSlugSchema,
+  idempotencyKeySchema,
+  webhookHeadersSchema,
+  webhookPayloadSchema,
+} from "./index.js";
 
 describe("setup contracts", () => {
   it("accepts a safe destination input", () => {
@@ -28,5 +34,37 @@ describe("setup contracts", () => {
       }).success,
     ).toBe(false);
     expect(endpointSlugSchema.safeParse("Not-a-slug").success).toBe(false);
+  });
+});
+
+describe("ingestion contracts", () => {
+  it("accepts explicit signed-request metadata and an object payload", () => {
+    expect(
+      webhookHeadersSchema.parse({
+        timestamp: "1785292800",
+        signature: `sha256=${"a".repeat(64)}`,
+        idempotencyKey: "billing.event:2026-07-29",
+      }),
+    ).toMatchObject({
+      timestamp: 1785292800,
+      idempotencyKey: "billing.event:2026-07-29",
+    });
+    expect(
+      webhookPayloadSchema.safeParse({ event: "invoice.paid" }).success,
+    ).toBe(true);
+  });
+
+  it("rejects ambiguous headers, unsafe keys, and non-object payloads", () => {
+    expect(
+      webhookHeadersSchema.safeParse({
+        timestamp: "now",
+        signature: "not-a-signature",
+        idempotencyKey: "key with spaces",
+      }).success,
+    ).toBe(false);
+    expect(idempotencyKeySchema.safeParse("x".repeat(129)).success).toBe(false);
+    expect(
+      webhookPayloadSchema.safeParse(["not", "an", "object"]).success,
+    ).toBe(false);
   });
 });

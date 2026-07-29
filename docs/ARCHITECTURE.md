@@ -56,6 +56,14 @@ Owns HTTP validation, signature verification, timestamp tolerance, payload
 limits, idempotency lookup, and durable event creation. It does not deliver the
 event.
 
+WOP-102 implements the HTTP boundary through
+`POST /v1/endpoints/:slug/events`. Fastify retains the exact
+`application/json` bytes before parsing. HMAC SHA-256 covers
+`<unix-seconds>.<raw-body>` and uses constant-time comparison. Requests are
+limited to 256 KiB and a five-minute replay window. The route validates the
+idempotency key and returns a digest receipt but deliberately does not reserve
+the key or persist an event. WOP-103 owns those authoritative transactions.
+
 ### Orchestration
 
 Owns queue scheduling, attempt allocation, retry policy, leases, and transition

@@ -11,7 +11,7 @@ import {
   fingerprintSecret,
   type SecretCipher,
 } from "@afterhook/domain";
-import { asc } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -26,6 +26,13 @@ export type SetupRepository = Readonly<{
   }) => Promise<{ endpoint: EndpointResponse; signingSecret: string }>;
   listDestinations: () => Promise<DestinationResponse[]>;
   listEndpoints: () => Promise<EndpointResponse[]>;
+  findIngestionEndpoint: (slug: string) => Promise<IngestionEndpoint | null>;
+}>;
+
+export type IngestionEndpoint = Readonly<{
+  id: string;
+  enabled: boolean;
+  signingSecret: string;
 }>;
 
 type Database = PostgresJsDatabase;
@@ -109,6 +116,27 @@ export function createSetupRepository(
         .from(endpoints)
         .orderBy(asc(endpoints.createdAt));
       return rows.map(toEndpointResponse);
+    },
+    async findIngestionEndpoint(slug) {
+      const [row] = await database
+        .select({
+          id: endpoints.id,
+          enabled: endpoints.enabled,
+          secretEncrypted: endpoints.secretEncrypted,
+        })
+        .from(endpoints)
+        .where(eq(endpoints.slug, slug))
+        .limit(1);
+
+      if (row === undefined) {
+        return null;
+      }
+
+      return {
+        id: row.id,
+        enabled: row.enabled,
+        signingSecret: cipher.decrypt(row.secretEncrypted),
+      };
     },
     async createDestination(input) {
       const [row] = await database

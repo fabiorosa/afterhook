@@ -2,12 +2,16 @@ import {
   createCipheriv,
   createDecipheriv,
   createHash,
+  createHmac,
   randomBytes,
+  timingSafeEqual,
 } from "node:crypto";
 
 const algorithm = "aes-256-gcm";
 const encryptionVersion = "v1";
 const ivBytes = 12;
+export const maxWebhookBodyBytes = 256 * 1024;
+export const webhookTimestampToleranceSeconds = 5 * 60;
 
 export type SecretCipher = Readonly<{
   decrypt: (encrypted: string) => string;
@@ -20,6 +24,45 @@ export function createSigningSecret(): string {
 
 export function fingerprintSecret(secret: string): string {
   return `sha256:${createHash("sha256").update(secret, "utf8").digest("hex").slice(0, 16)}`;
+}
+
+export function digestWebhookPayload(rawBody: Buffer | string): string {
+  return `sha256:${createHash("sha256").update(rawBody).digest("hex")}`;
+}
+
+export function createWebhookSignature(
+  secret: string,
+  timestamp: number,
+  rawBody: Buffer | string,
+): string {
+  const digest = createHmac("sha256", secret)
+    .update(`${String(timestamp)}.`, "utf8")
+    .update(rawBody)
+    .digest("hex");
+
+  return `sha256=${digest}`;
+}
+
+export function verifyWebhookSignature(
+  secret: string,
+  timestamp: number,
+  rawBody: Buffer | string,
+  receivedSignature: string,
+): boolean {
+  const expected = Buffer.from(
+    createWebhookSignature(secret, timestamp, rawBody),
+    "utf8",
+  );
+  const received = Buffer.from(receivedSignature, "utf8");
+
+  return (
+    expected.length === received.length && timingSafeEqual(expected, received)
+  );
+}
+
+export function isWebhookTimestampFresh(timestamp: number, now: Date): boolean {
+  const nowSeconds = Math.floor(now.getTime() / 1000);
+  return Math.abs(nowSeconds - timestamp) <= webhookTimestampToleranceSeconds;
 }
 
 export function createEndpointSlug(name: string): string {

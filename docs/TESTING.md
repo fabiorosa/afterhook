@@ -23,6 +23,10 @@ WOP-101 adds deterministic coverage for Zod setup contracts, slug validation,
 server-side secret generation, secret fingerprinting, AES-256-GCM round trips,
 tamper rejection, and safe Fastify response shapes.
 
+WOP-102 adds deterministic coverage for ingestion header contracts, exact-byte
+payload digests, HMAC creation and verification, altered timestamp and body
+rejection, malformed signature lengths, and inclusive replay-window bounds.
+
 ## PostgreSQL integration tests
 
 - same key and same digest returns the existing event;
@@ -56,6 +60,12 @@ stored encrypted and that list projections do not expose them.
 - oversized and non-JSON requests are rejected;
 - idempotency conflict returns a stable safe error;
 - response never exposes secrets or internal stack traces.
+
+WOP-102 exercises valid signed ingestion plus missing headers, malformed JSON,
+non-object JSON, wrong media type, stale timestamps, altered raw bytes, unknown
+and disabled endpoints, and payloads above 256 KiB. Repository integration
+coverage proves the encrypted signing secret is decrypted only through the
+narrow internal ingestion lookup.
 
 ## Browser tests
 

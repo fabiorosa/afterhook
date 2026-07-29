@@ -74,3 +74,18 @@ A separate truncated SHA-256 fingerprint is stored for the endpoint secret so
 operators can distinguish a revealed secret without seeing it again. The
 fingerprint is not accepted as a credential and is never used for signature
 verification.
+
+## ADR-008: Sign exact raw JSON bytes with a timestamp
+
+**Status:** accepted.
+
+WOP-102 signs `<unix-seconds>.<raw-json-body>` with HMAC SHA-256. The API keeps
+the original JSON bytes for verification, compares signatures in constant
+time, accepts only a five-minute timestamp window, and caps JSON bodies at
+256 KiB.
+
+Signing parsed or reserialized JSON would let whitespace and key-order changes
+alter the authenticated representation. Raw bytes make the contract precise
+and compatible with conventional webhook clients. Including the timestamp
+limits replay exposure. Idempotency keys are validated in WOP-102, while their
+transactional reservation and duplicate outcomes remain in WOP-103.

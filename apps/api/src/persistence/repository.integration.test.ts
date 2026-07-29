@@ -66,4 +66,19 @@ describe("setup repository", () => {
       "private-value",
     );
   });
+
+  it("decrypts signing material only for the internal ingestion lookup", async () => {
+    const created = await repository.createEndpoint({ name: "Billing events" });
+
+    await expect(
+      repository.findIngestionEndpoint(created.endpoint.slug),
+    ).resolves.toEqual({
+      id: created.endpoint.id,
+      enabled: true,
+      signingSecret: created.signingSecret,
+    });
+    await expect(
+      repository.findIngestionEndpoint("missing-endpoint"),
+    ).resolves.toBeNull();
+  });
 });

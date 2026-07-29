@@ -8,11 +8,11 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-101 is complete: a local operator can create and list endpoints and
-destinations through a Fastify API and React console. Endpoint signing secrets
-are generated server-side, shown once, fingerprinted safely, and encrypted at
-rest. Optional destination authorization is encrypted at rest and never
-returned by the API or console.
+WOP-102 is complete. A local operator can create and list secret-safe endpoints
+and destinations, then send a bounded JSON object signed with the endpoint
+secret. The API verifies the timestamp and exact raw body, rejects replayed or
+altered requests, and returns only a safe receipt with the payload digest.
+Event persistence begins separately in WOP-103.
 
 ## Local development
 
@@ -47,6 +47,27 @@ Open `http://127.0.0.1:5173`. The quality command runs formatting, lint,
 strict TypeScript, unit tests, a fresh PostgreSQL migration and integration
 tests, a Chromium setup journey, and production builds. It requires the local
 PostgreSQL container to be running.
+
+## Signed ingestion contract
+
+Send JSON to `POST /v1/endpoints/:slug/events` with:
+
+- `Content-Type: application/json`;
+- `Idempotency-Key`: 1 to 128 letters, numbers, `.`, `_`, `:`, or `-`;
+- `X-AfterHook-Timestamp`: the current Unix time in seconds;
+- `X-AfterHook-Signature`: `sha256=<hex HMAC>`.
+
+The HMAC SHA-256 input is the ASCII timestamp, one period, then the exact raw
+JSON bytes:
+
+```text
+<timestamp>.<raw-json-body>
+```
+
+Requests must be within five minutes of the API clock and no larger than
+262,144 bytes. A valid request returns `202 Accepted` with the endpoint ID,
+idempotency key, and SHA-256 payload digest. This validates the ingestion
+boundary only. WOP-103 will persist the event and resolve same-key duplicates.
 
 ## First release
 

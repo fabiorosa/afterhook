@@ -4,7 +4,18 @@ import {
   createdEndpointResponseSchema,
   destinationResponseSchema,
   endpointResponseSchema,
+  endpointSlugSchema,
+  ingestionErrorSchema,
+  ingestionReceiptSchema,
+  webhookHeadersSchema,
+  webhookPayloadSchema,
 } from "@afterhook/contracts";
+import {
+  digestWebhookPayload,
+  isWebhookTimestampFresh,
+  maxWebhookBodyBytes,
+  verifyWebhookSignature,
+} from "@afterhook/domain";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -12,6 +23,42 @@ import type { SetupRepository } from "./persistence/repository.js";
 
 const endpointListSchema = z.array(endpointResponseSchema);
 const destinationListSchema = z.array(destinationResponseSchema);
+const ingestionParamsSchema = z.object({ slug: endpointSlugSchema });
+
+declare module "fastify" {
+  interface FastifyRequest {
+    rawBody?: Buffer;
+  }
+}
+
+type ServerOptions = Readonly<{
+  now?: () => Date;
+}>;
+
+function ingestionError(
+  error:
+    | "INVALID_REQUEST"
+    | "ENDPOINT_NOT_FOUND"
+    | "SIGNATURE_REJECTED"
+    | "PAYLOAD_TOO_LARGE"
+    | "INTERNAL_ERROR",
+  message: string,
+) {
+  return ingestionErrorSchema.parse({ error, message });
+}
+
+function getErrorCode(error: unknown): string | undefined {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    typeof error.code === "string"
+  ) {
+    return error.code;
+  }
+
+  return undefined;
+}
 
 function parseOrReply<T>(
   schema: z.ZodType<T>,
@@ -31,8 +78,61 @@ function parseOrReply<T>(
   return undefined;
 }
 
-export function buildServer(repository: SetupRepository): FastifyInstance {
+export function buildServer(
+  repository: SetupRepository,
+  options: ServerOptions = {},
+): FastifyInstance {
   const app = Fastify({ logger: false });
+  const now = options.now ?? (() => new Date());
+
+  app.removeContentTypeParser("application/json");
+  app.addContentTypeParser(
+    "application/json",
+    { parseAs: "buffer", bodyLimit: maxWebhookBodyBytes },
+    (request, body, done) => {
+      const rawBody = Buffer.isBuffer(body) ? body : Buffer.from(body);
+      request.rawBody = rawBody;
+      try {
+        done(null, JSON.parse(rawBody.toString("utf8")) as unknown);
+      } catch {
+        const error = new SyntaxError("Invalid JSON body.") as SyntaxError & {
+          statusCode: number;
+        };
+        error.statusCode = 400;
+        done(error);
+      }
+    },
+  );
+
+  app.setErrorHandler((error, _request, reply) => {
+    const code = getErrorCode(error);
+    if (code === "FST_ERR_CTP_BODY_TOO_LARGE") {
+      return reply
+        .code(413)
+        .send(
+          ingestionError(
+            "PAYLOAD_TOO_LARGE",
+            `JSON payload must be at most ${String(maxWebhookBodyBytes)} bytes.`,
+          ),
+        );
+    }
+    if (
+      error instanceof SyntaxError ||
+      code === "FST_ERR_CTP_INVALID_MEDIA_TYPE"
+    ) {
+      return reply
+        .code(code === "FST_ERR_CTP_INVALID_MEDIA_TYPE" ? 415 : 400)
+        .send(
+          ingestionError("INVALID_REQUEST", "A valid JSON body is required."),
+        );
+    }
+
+    return reply
+      .code(500)
+      .send(
+        ingestionError("INTERNAL_ERROR", "The request could not be processed."),
+      );
+  });
 
   app.get("/health", () => ({ status: "ok" }));
 
@@ -71,6 +171,87 @@ export function buildServer(repository: SetupRepository): FastifyInstance {
           await repository.createDestination(input),
         ),
       );
+  });
+
+  app.post("/v1/endpoints/:slug/events", async (request, reply) => {
+    if (
+      request.headers["content-type"]?.split(";")[0]?.trim().toLowerCase() !==
+      "application/json"
+    ) {
+      return reply
+        .code(415)
+        .send(
+          ingestionError(
+            "INVALID_REQUEST",
+            "Content-Type must be application/json.",
+          ),
+        );
+    }
+
+    const params = ingestionParamsSchema.safeParse(request.params);
+    const headers = webhookHeadersSchema.safeParse({
+      timestamp: request.headers["x-afterhook-timestamp"],
+      signature: request.headers["x-afterhook-signature"],
+      idempotencyKey: request.headers["idempotency-key"],
+    });
+    const payload = webhookPayloadSchema.safeParse(request.body);
+    const rawBody = request.rawBody;
+
+    if (
+      !params.success ||
+      !headers.success ||
+      !payload.success ||
+      rawBody === undefined
+    ) {
+      return reply
+        .code(400)
+        .send(
+          ingestionError(
+            "INVALID_REQUEST",
+            "Slug, signed-request headers, and a JSON object are required.",
+          ),
+        );
+    }
+
+    const endpoint = await repository.findIngestionEndpoint(params.data.slug);
+    if (!endpoint?.enabled) {
+      return reply
+        .code(404)
+        .send(
+          ingestionError(
+            "ENDPOINT_NOT_FOUND",
+            "No enabled endpoint accepts this request.",
+          ),
+        );
+    }
+
+    if (
+      !isWebhookTimestampFresh(headers.data.timestamp, now()) ||
+      !verifyWebhookSignature(
+        endpoint.signingSecret,
+        headers.data.timestamp,
+        rawBody,
+        headers.data.signature,
+      )
+    ) {
+      return reply
+        .code(401)
+        .send(
+          ingestionError(
+            "SIGNATURE_REJECTED",
+            "The webhook signature or timestamp was rejected.",
+          ),
+        );
+    }
+
+    return reply.code(202).send(
+      ingestionReceiptSchema.parse({
+        accepted: true,
+        endpointId: endpoint.id,
+        idempotencyKey: headers.data.idempotencyKey,
+        payloadDigest: digestWebhookPayload(rawBody),
+      }),
+    );
   });
 
   return app;
