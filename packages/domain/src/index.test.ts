@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import {
   createSecretCipher,
   createSigningSecret,
+  createWebhookSignature,
+  digestWebhookPayload,
   fingerprintSecret,
+  isWebhookTimestampFresh,
+  maxWebhookBodyBytes,
+  verifyWebhookSignature,
+  webhookTimestampToleranceSeconds,
 } from "./index.js";
 
 describe("secret boundary", () => {
@@ -58,5 +64,59 @@ describe("secret boundary", () => {
     expect(() =>
       createSecretCipher(randomBytes(31).toString("base64")),
     ).toThrow("exactly 32 bytes");
+  });
+});
+
+describe("signed ingestion boundary", () => {
+  const secret = "ahsec_test-signing-secret";
+  const timestamp = 1785292800;
+  const rawBody = Buffer.from('{"event":"invoice.paid","amount":4200}');
+
+  it("creates a stable payload digest and HMAC over exact bytes", () => {
+    const signature = createWebhookSignature(secret, timestamp, rawBody);
+
+    expect(digestWebhookPayload(rawBody)).toMatch(/^sha256:[a-f0-9]{64}$/);
+    expect(signature).toMatch(/^sha256=[a-f0-9]{64}$/);
+    expect(verifyWebhookSignature(secret, timestamp, rawBody, signature)).toBe(
+      true,
+    );
+    expect(
+      verifyWebhookSignature(
+        secret,
+        timestamp,
+        Buffer.from(`${rawBody.toString("utf8")} `),
+        signature,
+      ),
+    ).toBe(false);
+  });
+
+  it("rejects altered, malformed, or wrong-length signatures safely", () => {
+    const signature = createWebhookSignature(secret, timestamp, rawBody);
+
+    expect(
+      verifyWebhookSignature(secret, timestamp + 1, rawBody, signature),
+    ).toBe(false);
+    expect(
+      verifyWebhookSignature(secret, timestamp, rawBody, "sha256=short"),
+    ).toBe(false);
+  });
+
+  it("accepts timestamps only inside the inclusive replay window", () => {
+    const now = new Date(timestamp * 1000);
+
+    expect(isWebhookTimestampFresh(timestamp, now)).toBe(true);
+    expect(
+      isWebhookTimestampFresh(
+        timestamp - webhookTimestampToleranceSeconds,
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isWebhookTimestampFresh(
+        timestamp - webhookTimestampToleranceSeconds - 1,
+        now,
+      ),
+    ).toBe(false);
+    expect(maxWebhookBodyBytes).toBe(262_144);
   });
 });

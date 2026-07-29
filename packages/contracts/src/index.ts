@@ -72,6 +72,53 @@ export const destinationResponseSchema = z.object({
   updatedAt: z.iso.datetime(),
 });
 
+export const webhookTimestampSchema = z
+  .string()
+  .regex(/^\d{10}$/, "Webhook timestamp must use Unix seconds.")
+  .transform(Number)
+  .refine(Number.isSafeInteger, "Webhook timestamp is invalid.");
+
+export const webhookSignatureSchema = z
+  .string()
+  .regex(
+    /^sha256=[a-f0-9]{64}$/,
+    "Webhook signature must use the sha256=<hex> format.",
+  );
+
+export const idempotencyKeySchema = z
+  .string()
+  .min(1, "Idempotency key is required.")
+  .max(128, "Idempotency key must be at most 128 characters.")
+  .regex(
+    /^[A-Za-z0-9._:-]+$/,
+    "Idempotency key contains unsupported characters.",
+  );
+
+export const webhookHeadersSchema = z.object({
+  timestamp: webhookTimestampSchema,
+  signature: webhookSignatureSchema,
+  idempotencyKey: idempotencyKeySchema,
+});
+
+export const webhookPayloadSchema = z.record(z.string(), z.unknown());
+
+export const ingestionReceiptSchema = z.object({
+  accepted: z.literal(true),
+  endpointId: z.uuid(),
+  idempotencyKey: idempotencyKeySchema,
+  payloadDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+});
+
+export const ingestionErrorSchema = z.object({
+  error: z.enum([
+    "INVALID_REQUEST",
+    "ENDPOINT_NOT_FOUND",
+    "SIGNATURE_REJECTED",
+    "PAYLOAD_TOO_LARGE",
+  ]),
+  message: z.string(),
+});
+
 export type CreateEndpointInput = z.infer<typeof createEndpointInputSchema>;
 export type CreateDestinationInput = z.infer<
   typeof createDestinationInputSchema
@@ -81,3 +128,7 @@ export type CreatedEndpointResponse = z.infer<
   typeof createdEndpointResponseSchema
 >;
 export type DestinationResponse = z.infer<typeof destinationResponseSchema>;
+export type WebhookHeaders = z.infer<typeof webhookHeadersSchema>;
+export type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
+export type IngestionReceipt = z.infer<typeof ingestionReceiptSchema>;
+export type IngestionError = z.infer<typeof ingestionErrorSchema>;
