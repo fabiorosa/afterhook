@@ -8,11 +8,11 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-102 is complete on its review branch. A local operator can create and list
-secret-safe endpoints and destinations, then send a bounded JSON object signed
-with the endpoint secret. The API verifies the timestamp and exact raw body,
-rejects replayed or altered requests, and returns only a safe receipt with the
-payload digest. Event persistence begins separately in WOP-103.
+WOP-102 is complete. A local operator can create and list secret-safe endpoints
+and destinations, then send a bounded JSON object signed with the endpoint
+secret. The API verifies the timestamp and exact raw body, rejects replayed or
+altered requests, and returns only a safe receipt with the payload digest.
+Event persistence begins separately in WOP-103.
 
 ## Local development
 

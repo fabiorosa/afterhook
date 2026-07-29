@@ -21,21 +21,18 @@ Updated: 2026-07-29.
   unknown or disabled endpoints, and oversized bodies with safe errors.
 - PostgreSQL lookup decrypts the signing secret only through a narrow internal
   ingestion projection. No API response exposes it.
+- Pull request #6 passed technical review plus terminal local, push, and
+  pull-request Quality gates.
 
 ## In progress
 
-WOP-102 is the only active ticket.
-
-Active public work:
-
-- issue: `https://github.com/fabiorosa/afterhook/issues/5`;
-- draft PR: `https://github.com/fabiorosa/afterhook/pull/6`;
-- branch: `agent/signed-ingestion`.
+No implementation ticket is active.
 
 ## Pending work
 
-1. Retain green local and GitHub quality gates for pull request #6.
-2. Review and merge WOP-102 before beginning WOP-103.
+1. Open WOP-103 as a separate public issue.
+2. Persist one authoritative event and its initial activity without adding
+   delivery behavior.
 
 ## Decisions
 
@@ -63,19 +60,17 @@ None. WOP-103 already owns the next persistence boundary.
 
 ## Next step
 
-Review and merge pull request #6 after terminal CI success. Do not begin
-WOP-103 in the same branch.
+Begin WOP-103 from updated `main` as a separate issue and branch.
 
 ## Pending validation
 
-The complete root quality command passes locally on 2026-07-29. Pull request #6
-must retain a terminal green GitHub Actions Quality run before review or merge.
+None for WOP-102. Its complete root Quality command passes locally and in both
+GitHub Actions contexts.
 
 ## Continuation prompt
 
 ```text
-Review draft PR #6 for WOP-102 after CI is green. If it merges, begin WOP-103
-as a separate issue and branch. Preserve the boundary: WOP-103 persists one
-authoritative event and its initial activity but does not add delivery,
-queues, retries, accounts, event-list UI, or deploy.
+Begin WOP-103 as a separate issue and branch from updated main. Persist one
+authoritative event and its initial activity with transactional idempotency.
+Do not add delivery, queues, retries, accounts, event-list UI, or deploy.
 ```
