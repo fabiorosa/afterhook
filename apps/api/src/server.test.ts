@@ -34,7 +34,9 @@ const signingSecret = "ahsec_only_returned_once";
 const webhookTimestamp = 1785292800;
 const webhookNow = new Date(webhookTimestamp * 1000);
 
-function createRepository(ingestionEnabled = endpoint.enabled): SetupRepository {
+function createRepository(
+  ingestionEnabled = endpoint.enabled,
+): SetupRepository {
   return {
     createEndpoint: () => Promise.resolve({ endpoint, signingSecret }),
     createDestination: () => Promise.resolve(destination),

@@ -36,7 +36,7 @@ export function createWebhookSignature(
   rawBody: Buffer | string,
 ): string {
   const digest = createHmac("sha256", secret)
-    .update(`${timestamp}.`, "utf8")
+    .update(`${String(timestamp)}.`, "utf8")
     .update(rawBody)
     .digest("hex");
 

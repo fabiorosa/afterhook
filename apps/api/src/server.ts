@@ -111,7 +111,7 @@ export function buildServer(
         .send(
           ingestionError(
             "PAYLOAD_TOO_LARGE",
-            `JSON payload must be at most ${maxWebhookBodyBytes} bytes.`,
+            `JSON payload must be at most ${String(maxWebhookBodyBytes)} bytes.`,
           ),
         );
     }
@@ -216,7 +216,7 @@ export function buildServer(
     }
 
     const endpoint = await repository.findIngestionEndpoint(params.data.slug);
-    if (endpoint === null || !endpoint.enabled) {
+    if (!endpoint?.enabled) {
       return reply
         .code(404)
         .send(
