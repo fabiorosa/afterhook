@@ -1,88 +1,81 @@
 # Session state
 
-Updated: 2026-07-27.
+Updated: 2026-07-29.
 
 ## Completed and validated
 
 - WOP-001 selected and verified the AfterHook name.
 - WOP-002 published the product foundation at
   `https://github.com/fabiorosa/afterhook`.
-- WOP-003 established the strict TypeScript npm workspace, formatting, lint,
-  Vitest, build, lockfile installation, and GitHub Actions.
-- Pull request #2 passed local and GitHub quality gates, received a manual diff
-  review, and merged into `main`.
-- `npm audit` reported zero known vulnerabilities when WOP-003 merged.
-- WOP-101 implements Zod setup contracts, framework-independent secret
-  generation, SHA-256 fingerprints, and versioned AES-256-GCM envelopes.
-- Drizzle migration `0000_windy_saracen` creates PostgreSQL endpoint and
-  destination records with encrypted secret and authorization columns.
-- Fastify safely creates and lists records. Endpoint secrets appear only in a
-  creation response; list responses never include encrypted material.
-- The Vite React console provides setup, empty, validation, success, copy,
-  secret-dismissed, responsive, and error states.
-- Unit, Fastify, PostgreSQL, and Chromium setup tests pass locally.
-- The clean-checkout CI regression is fixed with source-level workspace paths,
-  explicit API project references, and a clean-before-lint quality gate.
-- GitHub Actions installs the pinned Playwright Chromium runtime before running
-  browser coverage on Linux.
+- WOP-003 established the strict TypeScript workspace and CI.
+- WOP-101 created secret-safe endpoint and destination setup through
+  PostgreSQL, Fastify, and the React console. Pull request #4 passed review,
+  merged into `main`, and retained green post-merge Quality.
+- WOP-102 defines signed-ingestion Zod contracts and framework-independent
+  SHA-256 payload digests, HMAC verification, constant-time comparison,
+  five-minute timestamp tolerance, and a 256 KiB body limit.
+- Fastify preserves the exact raw JSON bytes used for signature verification
+  and returns only endpoint ID, idempotency key, and payload digest.
+- The ingestion route rejects missing or malformed headers, invalid and
+  non-object JSON, unsupported media types, stale or altered signatures,
+  unknown or disabled endpoints, and oversized bodies with safe errors.
+- PostgreSQL lookup decrypts the signing secret only through a narrow internal
+  ingestion projection. No API response exposes it.
 
 ## In progress
 
-No ticket is currently active. WOP-102 is the next backlog item after review.
+WOP-102 is the only active ticket.
 
 Active public work:
 
-- issue: `https://github.com/fabiorosa/afterhook/issues/3`;
-- draft PR: `https://github.com/fabiorosa/afterhook/pull/4`;
-- branch: `agent/secret-safe-setup`;
-- local branch is synchronized with its remote.
+- issue: `https://github.com/fabiorosa/afterhook/issues/5`;
+- draft PR: `https://github.com/fabiorosa/afterhook/pull/6`;
+- branch: `agent/signed-ingestion`.
 
 ## Pending work
 
-1. Review and merge the WOP-101 draft PR.
-2. Begin WOP-102 only after WOP-101 is merged.
+1. Retain green local and GitHub quality gates for pull request #6.
+2. Review and merge WOP-102 before beginning WOP-103.
 
 ## Decisions
 
-- PostgreSQL remains authoritative for product records.
-- WOP-101 uses Fastify for the API and Vite with React for the console.
-- Drizzle owns schema and migrations; `postgres` provides the connection.
-- Zod validates external input.
-- Node.js cryptography provides AES-256-GCM encryption.
-- Secrets are generated server-side, returned once, encrypted at rest, and
-  omitted from subsequent reads.
-- The console uses authored CSS and tokens, not a component framework.
-- The interface follows the project's dark premium direction with one accent,
-  generous spacing, complete states, and no emoji.
-- WOP-101 must not introduce webhook ingestion, delivery, Redis, BullMQ,
-  retries, accounts, or deployment.
+- Signatures use HMAC SHA-256 over `<unix-seconds>.<exact-raw-json-bytes>`.
+- Signature comparison is constant-time and timestamps allow five minutes of
+  clock difference in either direction.
+- Ingestion accepts only JSON objects up to 262,144 bytes.
+- Idempotency keys are validated now, but event persistence, reservation,
+  duplicate reuse, and conflict outcomes belong to WOP-103.
+- WOP-102 does not add event tables, activities, delivery, Redis, BullMQ,
+  retries, accounts, console event views, or deployment.
 
 ## Dead ends
 
-- The GitHub connector returned `403 Resource not accessible by integration`
-  when creating pull request #2. GitHub CLI authentication worked and remains
-  the confirmed write fallback for this repository.
-- PowerShell may block `npm.ps1` inside the sandbox. Use `npm.cmd` for local
-  checks when that occurs.
+- The first Fastify parser integration exposed that its callback body type
+  remains `string | Buffer` and that the built-in `text/plain` parser reaches
+  route handlers instead of producing an unsupported-media error. The final
+  boundary normalizes parser input to `Buffer` and rejects non-JSON content
+  explicitly at the ingestion route.
+- PowerShell may block `npm.ps1`. Use `npm.cmd` for local checks.
 
 ## Open questions
 
-None. The active issue and ADR-006 provide enough scope to continue without
-asking Fabio for implementation decisions.
+None. WOP-103 already owns the next persistence boundary.
 
 ## Next step
 
-Review WOP-101. Do not extend it into webhook ingestion or delivery behavior.
+Review and merge pull request #6 after terminal CI success. Do not begin
+WOP-103 in the same branch.
 
 ## Pending validation
 
-The clean-checkout regression passes locally on 2026-07-27. Draft PR #4 must
-retain green GitHub Actions checks before review or merge.
+The complete root quality command passes locally on 2026-07-29. Pull request #6
+must retain a terminal green GitHub Actions Quality run before review or merge.
 
 ## Continuation prompt
 
 ```text
-Review draft PR #4 for WOP-101. If it is merged, select the next single
-backlog ticket before changing product behavior. Preserve the explicit
-non-goals around ingestion, delivery, queues, retries, accounts, and deploy.
+Review draft PR #6 for WOP-102 after CI is green. If it merges, begin WOP-103
+as a separate issue and branch. Preserve the boundary: WOP-103 persists one
+authoritative event and its initial activity but does not add delivery,
+queues, retries, accounts, event-list UI, or deploy.
 ```
