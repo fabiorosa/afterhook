@@ -10,10 +10,8 @@ if (databaseUrl === undefined || encryptionKey === undefined) {
   throw new Error("DATABASE_URL and SECRET_ENCRYPTION_KEY are required.");
 }
 
-const repository = createPostgresRepository(
-  databaseUrl,
-  createSecretCipher(encryptionKey),
-);
+const cipher = createSecretCipher(encryptionKey);
+const repository = createPostgresRepository(databaseUrl, cipher);
 const app = buildServer(repository);
 
 await app.listen({ host: "127.0.0.1", port: Number(process.env.PORT ?? 3001) });

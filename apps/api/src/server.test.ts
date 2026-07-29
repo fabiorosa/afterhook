@@ -2,6 +2,10 @@ import type {
   DestinationResponse,
   EndpointResponse,
 } from "@afterhook/contracts";
+import {
+  createWebhookSignature,
+  digestWebhookPayload,
+} from "@afterhook/domain";
 import { afterEach, describe, expect, it } from "vitest";
 
 import type { SetupRepository } from "./persistence/repository.js";
@@ -26,14 +30,22 @@ const destination: DestinationResponse = {
   createdAt: timestamp,
   updatedAt: timestamp,
 };
+const signingSecret = "ahsec_only_returned_once";
+const webhookTimestamp = 1785292800;
+const webhookNow = new Date(webhookTimestamp * 1000);
 
-function createRepository(): SetupRepository {
+function createRepository(ingestionEnabled = endpoint.enabled): SetupRepository {
   return {
-    createEndpoint: () =>
-      Promise.resolve({ endpoint, signingSecret: "ahsec_only_returned_once" }),
+    createEndpoint: () => Promise.resolve({ endpoint, signingSecret }),
     createDestination: () => Promise.resolve(destination),
     listEndpoints: () => Promise.resolve([endpoint]),
     listDestinations: () => Promise.resolve([destination]),
+    findIngestionEndpoint: (slug) =>
+      Promise.resolve(
+        slug === endpoint.slug
+          ? { id: endpoint.id, enabled: ingestionEnabled, signingSecret }
+          : null,
+      ),
   };
 }
 
@@ -82,5 +94,123 @@ describe("setup HTTP contract", () => {
     expect(created.statusCode).toBe(201);
     expect(created.body).not.toContain("private-value");
     expect(created.body).not.toContain("authorizationEncrypted");
+  });
+});
+
+describe("ingestion HTTP contract", () => {
+  const app = buildServer(createRepository(), { now: () => webhookNow });
+  const rawBody = '{"event":"invoice.paid","amount":4200}';
+  const validHeaders = {
+    "content-type": "application/json",
+    "idempotency-key": "invoice-4200",
+    "x-afterhook-timestamp": String(webhookTimestamp),
+    "x-afterhook-signature": createWebhookSignature(
+      signingSecret,
+      webhookTimestamp,
+      rawBody,
+    ),
+  };
+
+  it("accepts a current signature over the exact raw JSON bytes", async () => {
+    const response = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json()).toEqual({
+      accepted: true,
+      endpointId: endpoint.id,
+      idempotencyKey: "invoice-4200",
+      payloadDigest: digestWebhookPayload(rawBody),
+    });
+    expect(response.body).not.toContain(signingSecret);
+  });
+
+  it("rejects stale, altered, and unknown endpoint requests safely", async () => {
+    const stale = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: {
+        ...validHeaders,
+        "x-afterhook-timestamp": String(webhookTimestamp - 301),
+        "x-afterhook-signature": createWebhookSignature(
+          signingSecret,
+          webhookTimestamp - 301,
+          rawBody,
+        ),
+      },
+      payload: rawBody,
+    });
+    const altered = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: `${rawBody} `,
+    });
+    const missing = await app.inject({
+      method: "POST",
+      url: "/v1/endpoints/missing-endpoint/events",
+      headers: validHeaders,
+      payload: rawBody,
+    });
+    const disabledApp = buildServer(createRepository(false), {
+      now: () => webhookNow,
+    });
+    const disabled = await disabledApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+
+    expect(stale.statusCode).toBe(401);
+    expect(altered.statusCode).toBe(401);
+    expect(missing.statusCode).toBe(404);
+    expect(disabled.statusCode).toBe(404);
+    expect(
+      `${stale.body}${altered.body}${missing.body}${disabled.body}`,
+    ).not.toContain(signingSecret);
+  });
+
+  it("rejects invalid headers, JSON shapes, media types, and oversized bodies", async () => {
+    const invalidHeaders = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: { "content-type": "application/json" },
+      payload: rawBody,
+    });
+    const arrayPayload = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: "[]",
+    });
+    const malformedJson = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: "{",
+    });
+    const wrongMediaType = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: { ...validHeaders, "content-type": "text/plain" },
+      payload: rawBody,
+    });
+    const oversized = await app.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: JSON.stringify({ value: "x".repeat(262_144) }),
+    });
+
+    expect(invalidHeaders.statusCode).toBe(400);
+    expect(arrayPayload.statusCode).toBe(400);
+    expect(malformedJson.statusCode).toBe(400);
+    expect(wrongMediaType.statusCode).toBe(415);
+    expect(oversized.statusCode).toBe(413);
   });
 });
