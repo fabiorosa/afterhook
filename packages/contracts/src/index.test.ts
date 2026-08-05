@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createDestinationInputSchema,
   endpointSlugSchema,
+  eventDetailSchema,
+  eventListItemSchema,
   idempotencyKeySchema,
   ingestionReceiptSchema,
   webhookHeadersSchema,
@@ -80,5 +82,48 @@ describe("ingestion contracts", () => {
         duplicate: false,
       }),
     ).toMatchObject({ duplicate: false });
+  });
+});
+
+describe("event inspection contracts", () => {
+  const event = {
+    id: "75339b4d-bb60-43b6-93bd-30436cb6454a",
+    endpoint: {
+      id: "b102edbf-3ce2-4f4f-b7b3-607cefc2f5c8",
+      name: "Billing events",
+      slug: "billing-events-ab12cd",
+    },
+    idempotencyKey: "invoice-4200",
+    status: "RECEIVED" as const,
+    receivedAt: "2026-08-05T12:00:00.000Z",
+    attemptCount: 0,
+  };
+
+  it("validates safe list and detail projections", () => {
+    expect(eventListItemSchema.parse(event)).toEqual(event);
+    expect(
+      eventDetailSchema.parse({
+        ...event,
+        payloadDigest: `sha256:${"a".repeat(64)}`,
+        payloadRedacted: { event: "invoice.paid", token: "[REDACTED]" },
+        activities: [
+          {
+            id: "17bfabde-4c6c-4722-a3a2-6c9c9e77e49c",
+            type: "event.received",
+            metadata: { payloadDigest: `sha256:${"a".repeat(64)}` },
+            createdAt: "2026-08-05T12:00:00.000Z",
+          },
+        ],
+      }),
+    ).toMatchObject({ payloadRedacted: { token: "[REDACTED]" } });
+  });
+
+  it("rejects unsafe event states and malformed attempt counts", () => {
+    expect(
+      eventListItemSchema.safeParse({ ...event, status: "ACCEPTED" }).success,
+    ).toBe(false);
+    expect(
+      eventListItemSchema.safeParse({ ...event, attemptCount: -1 }).success,
+    ).toBe(false);
   });
 });

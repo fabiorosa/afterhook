@@ -1,9 +1,12 @@
 import { randomBytes } from "node:crypto";
 
-import type {
-  CreateDestinationInput,
-  DestinationResponse,
-  EndpointResponse,
+import {
+  eventStatusSchema,
+  type CreateDestinationInput,
+  type DestinationResponse,
+  type EndpointResponse,
+  type EventDetail,
+  type EventListItem,
 } from "@afterhook/contracts";
 import {
   createEndpointSlug,
@@ -11,7 +14,7 @@ import {
   fingerprintSecret,
   type SecretCipher,
 } from "@afterhook/domain";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -40,6 +43,8 @@ export type SetupRepository = Readonly<{
   listEndpoints: () => Promise<EndpointResponse[]>;
   findIngestionEndpoint: (slug: string) => Promise<IngestionEndpoint | null>;
   persistEvent: (input: PersistEventInput) => Promise<PersistEventOutcome>;
+  listEvents: () => Promise<EventListItem[]>;
+  findEventDetail: (eventId: string) => Promise<EventDetail | null>;
 }>;
 
 export type IngestionEndpoint = Readonly<{
@@ -84,6 +89,29 @@ function toDestinationResponse(
 
 function slugCandidate(name: string): string {
   return `${createEndpointSlug(name)}-${randomBytes(3).toString("hex")}`;
+}
+
+function toEventListItem(row: {
+  id: string;
+  endpointId: string;
+  endpointName: string;
+  endpointSlug: string;
+  idempotencyKey: string;
+  status: string;
+  receivedAt: Date;
+}): EventListItem {
+  return {
+    id: row.id,
+    endpoint: {
+      id: row.endpointId,
+      name: row.endpointName,
+      slug: row.endpointSlug,
+    },
+    idempotencyKey: row.idempotencyKey,
+    status: eventStatusSchema.parse(row.status),
+    receivedAt: toIsoDate(row.receivedAt),
+    attemptCount: 0,
+  };
 }
 
 export function createSetupRepository(
@@ -196,6 +224,67 @@ export function createSetupRepository(
           ? ({ outcome: "existing", eventId: existing.id } as const)
           : ({ outcome: "conflict" } as const);
       });
+    },
+    async listEvents() {
+      const rows = await database
+        .select({
+          id: events.id,
+          endpointId: endpoints.id,
+          endpointName: endpoints.name,
+          endpointSlug: endpoints.slug,
+          idempotencyKey: events.idempotencyKey,
+          status: events.status,
+          receivedAt: events.receivedAt,
+        })
+        .from(events)
+        .innerJoin(endpoints, eq(events.endpointId, endpoints.id))
+        .orderBy(desc(events.receivedAt), desc(events.id));
+
+      return rows.map(toEventListItem);
+    },
+    async findEventDetail(eventId) {
+      const [row] = await database
+        .select({
+          id: events.id,
+          endpointId: endpoints.id,
+          endpointName: endpoints.name,
+          endpointSlug: endpoints.slug,
+          idempotencyKey: events.idempotencyKey,
+          status: events.status,
+          receivedAt: events.receivedAt,
+          payloadDigest: events.payloadDigest,
+          payloadRedacted: events.payloadRedacted,
+        })
+        .from(events)
+        .innerJoin(endpoints, eq(events.endpointId, endpoints.id))
+        .where(eq(events.id, eventId))
+        .limit(1);
+
+      if (row === undefined) {
+        return null;
+      }
+
+      const activities = await database
+        .select({
+          id: activityEvents.id,
+          type: activityEvents.type,
+          metadata: activityEvents.metadata,
+          createdAt: activityEvents.createdAt,
+        })
+        .from(activityEvents)
+        .where(eq(activityEvents.eventId, eventId))
+        .orderBy(asc(activityEvents.createdAt), asc(activityEvents.id));
+
+      return {
+        ...toEventListItem(row),
+        payloadDigest: row.payloadDigest,
+        payloadRedacted: row.payloadRedacted as Record<string, unknown>,
+        activities: activities.map((activity) => ({
+          ...activity,
+          metadata: activity.metadata as Record<string, unknown>,
+          createdAt: toIsoDate(activity.createdAt),
+        })),
+      };
     },
     async createDestination(input) {
       const [row] = await database

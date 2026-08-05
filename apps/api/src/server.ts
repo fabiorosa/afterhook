@@ -5,6 +5,9 @@ import {
   destinationResponseSchema,
   endpointResponseSchema,
   endpointSlugSchema,
+  eventDetailSchema,
+  eventInspectionErrorSchema,
+  eventListItemSchema,
   ingestionErrorSchema,
   ingestionReceiptSchema,
   webhookHeadersSchema,
@@ -25,6 +28,8 @@ import type { SetupRepository } from "./persistence/repository.js";
 const endpointListSchema = z.array(endpointResponseSchema);
 const destinationListSchema = z.array(destinationResponseSchema);
 const ingestionParamsSchema = z.object({ slug: endpointSlugSchema });
+const eventListSchema = z.array(eventListItemSchema);
+const eventParamsSchema = z.object({ eventId: z.uuid() });
 
 declare module "fastify" {
   interface FastifyRequest {
@@ -144,6 +149,26 @@ export function buildServer(
   app.get("/v1/destinations", async () =>
     destinationListSchema.parse(await repository.listDestinations()),
   );
+  app.get("/v1/events", async () =>
+    eventListSchema.parse(await repository.listEvents()),
+  );
+  app.get("/v1/events/:eventId", async (request, reply) => {
+    const params = eventParamsSchema.safeParse(request.params);
+    const event = params.success
+      ? await repository.findEventDetail(params.data.eventId)
+      : null;
+
+    if (event === null) {
+      return reply.code(404).send(
+        eventInspectionErrorSchema.parse({
+          error: "EVENT_NOT_FOUND",
+          message: "The event could not be found.",
+        }),
+      );
+    }
+
+    return eventDetailSchema.parse(event);
+  });
 
   app.post("/v1/endpoints", async (request, reply) => {
     const input = parseOrReply(createEndpointInputSchema, request.body, reply);
