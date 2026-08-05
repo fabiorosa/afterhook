@@ -11,11 +11,23 @@ import {
   fingerprintSecret,
   type SecretCipher,
 } from "@afterhook/domain";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { destinations, endpoints } from "./schema.js";
+import { activityEvents, destinations, endpoints, events } from "./schema.js";
+
+export type PersistEventInput = Readonly<{
+  endpointId: string;
+  idempotencyKey: string;
+  payloadDigest: string;
+  payloadRedacted: unknown;
+  receivedAt: Date;
+}>;
+
+export type PersistEventOutcome =
+  | Readonly<{ outcome: "created" | "existing"; eventId: string }>
+  | Readonly<{ outcome: "conflict" }>;
 
 export type SetupRepository = Readonly<{
   createDestination: (
@@ -27,6 +39,7 @@ export type SetupRepository = Readonly<{
   listDestinations: () => Promise<DestinationResponse[]>;
   listEndpoints: () => Promise<EndpointResponse[]>;
   findIngestionEndpoint: (slug: string) => Promise<IngestionEndpoint | null>;
+  persistEvent: (input: PersistEventInput) => Promise<PersistEventOutcome>;
 }>;
 
 export type IngestionEndpoint = Readonly<{
@@ -137,6 +150,52 @@ export function createSetupRepository(
         enabled: row.enabled,
         signingSecret: cipher.decrypt(row.secretEncrypted),
       };
+    },
+    async persistEvent(input) {
+      return database.transaction(async (transaction) => {
+        const [created] = await transaction
+          .insert(events)
+          .values({
+            endpointId: input.endpointId,
+            idempotencyKey: input.idempotencyKey,
+            payloadDigest: input.payloadDigest,
+            payloadRedacted: input.payloadRedacted,
+            receivedAt: input.receivedAt,
+          })
+          .onConflictDoNothing({
+            target: [events.endpointId, events.idempotencyKey],
+          })
+          .returning({ id: events.id });
+
+        if (created !== undefined) {
+          await transaction.insert(activityEvents).values({
+            eventId: created.id,
+            type: "event.received",
+            metadata: { payloadDigest: input.payloadDigest },
+            createdAt: input.receivedAt,
+          });
+          return { outcome: "created", eventId: created.id } as const;
+        }
+
+        const [existing] = await transaction
+          .select({ id: events.id, payloadDigest: events.payloadDigest })
+          .from(events)
+          .where(
+            and(
+              eq(events.endpointId, input.endpointId),
+              eq(events.idempotencyKey, input.idempotencyKey),
+            ),
+          )
+          .limit(1);
+
+        if (existing === undefined) {
+          throw new Error("Idempotency reservation could not be read.");
+        }
+
+        return existing.payloadDigest === input.payloadDigest
+          ? ({ outcome: "existing", eventId: existing.id } as const)
+          : ({ outcome: "conflict" } as const);
+      });
     },
     async createDestination(input) {
       const [row] = await database

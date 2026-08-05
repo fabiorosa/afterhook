@@ -12,6 +12,25 @@ const encryptionVersion = "v1";
 const ivBytes = 12;
 export const maxWebhookBodyBytes = 256 * 1024;
 export const webhookTimestampToleranceSeconds = 5 * 60;
+const sensitivePayloadKeys = new Set([
+  "apikey",
+  "authorization",
+  "clientsecret",
+  "cookie",
+  "password",
+  "refreshtoken",
+  "secret",
+  "token",
+  "accesstoken",
+]);
+
+export type RedactedPayloadValue =
+  | null
+  | boolean
+  | number
+  | string
+  | RedactedPayloadValue[]
+  | { [key: string]: RedactedPayloadValue };
 
 export type SecretCipher = Readonly<{
   decrypt: (encrypted: string) => string;
@@ -28,6 +47,42 @@ export function fingerprintSecret(secret: string): string {
 
 export function digestWebhookPayload(rawBody: Buffer | string): string {
   return `sha256:${createHash("sha256").update(rawBody).digest("hex")}`;
+}
+
+export function redactWebhookPayload(
+  value: unknown,
+  key?: string,
+): RedactedPayloadValue {
+  if (
+    key !== undefined &&
+    sensitivePayloadKeys.has(key.replace(/[^a-z0-9]/gi, "").toLowerCase())
+  ) {
+    return "[REDACTED]";
+  }
+
+  if (
+    value === null ||
+    typeof value === "string" ||
+    typeof value === "number" ||
+    typeof value === "boolean"
+  ) {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => redactWebhookPayload(item));
+  }
+
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([entryKey, entryValue]) => [
+        entryKey,
+        redactWebhookPayload(entryValue, entryKey),
+      ]),
+    );
+  }
+
+  return "[UNSUPPORTED]";
 }
 
 export function createWebhookSignature(

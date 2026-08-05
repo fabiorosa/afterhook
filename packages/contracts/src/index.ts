@@ -104,9 +104,11 @@ export const webhookPayloadSchema = z.record(z.string(), z.unknown());
 
 export const ingestionReceiptSchema = z.object({
   accepted: z.literal(true),
+  eventId: z.uuid(),
   endpointId: z.uuid(),
   idempotencyKey: idempotencyKeySchema,
   payloadDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  duplicate: z.boolean(),
 });
 
 export const ingestionErrorSchema = z.object({
@@ -115,6 +117,7 @@ export const ingestionErrorSchema = z.object({
     "ENDPOINT_NOT_FOUND",
     "SIGNATURE_REJECTED",
     "PAYLOAD_TOO_LARGE",
+    "IDEMPOTENCY_CONFLICT",
     "INTERNAL_ERROR",
   ]),
   message: z.string(),
