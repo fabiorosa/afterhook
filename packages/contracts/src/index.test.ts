@@ -4,6 +4,7 @@ import {
   createDestinationInputSchema,
   endpointSlugSchema,
   idempotencyKeySchema,
+  ingestionReceiptSchema,
   webhookHeadersSchema,
   webhookPayloadSchema,
 } from "./index.js";
@@ -66,5 +67,18 @@ describe("ingestion contracts", () => {
     expect(
       webhookPayloadSchema.safeParse(["not", "an", "object"]).success,
     ).toBe(false);
+  });
+
+  it("requires a stable event identity and duplicate outcome", () => {
+    expect(
+      ingestionReceiptSchema.parse({
+        accepted: true,
+        eventId: "75339b4d-bb60-43b6-93bd-30436cb6454a",
+        endpointId: "b102edbf-3ce2-4f4f-b7b3-607cefc2f5c8",
+        idempotencyKey: "billing.event:2026-08-05",
+        payloadDigest: `sha256:${"a".repeat(64)}`,
+        duplicate: false,
+      }),
+    ).toMatchObject({ duplicate: false });
   });
 });

@@ -1,6 +1,6 @@
 # Session state
 
-Updated: 2026-07-29.
+Updated: 2026-08-05.
 
 ## Completed and validated
 
@@ -9,68 +9,62 @@ Updated: 2026-07-29.
   `https://github.com/fabiorosa/afterhook`.
 - WOP-003 established the strict TypeScript workspace and CI.
 - WOP-101 created secret-safe endpoint and destination setup through
-  PostgreSQL, Fastify, and the React console. Pull request #4 passed review,
-  merged into `main`, and retained green post-merge Quality.
-- WOP-102 defines signed-ingestion Zod contracts and framework-independent
-  SHA-256 payload digests, HMAC verification, constant-time comparison,
-  five-minute timestamp tolerance, and a 256 KiB body limit.
-- Fastify preserves the exact raw JSON bytes used for signature verification
-  and returns only endpoint ID, idempotency key, and payload digest.
-- The ingestion route rejects missing or malformed headers, invalid and
-  non-object JSON, unsupported media types, stale or altered signatures,
-  unknown or disabled endpoints, and oversized bodies with safe errors.
-- PostgreSQL lookup decrypts the signing secret only through a narrow internal
-  ingestion projection. No API response exposes it.
-- Pull request #6 passed technical review plus terminal local, push, and
-  pull-request Quality gates.
+  PostgreSQL, Fastify, and the React console.
+- WOP-102 created the signed JSON ingestion boundary with exact raw-byte HMAC,
+  a five-minute timestamp window, a 256 KiB limit, and safe endpoint lookup.
+- WOP-103 adds PostgreSQL `events` and `activity_events` records. New ingestion
+  atomically commits one `RECEIVED` event and one `event.received` activity.
+- The `(endpoint_id, idempotency_key)` unique boundary resolves concurrent
+  equivalent requests to one stable event. Same-digest reuse returns that event
+  and different-digest reuse returns a safe `409` conflict.
+- Stored JSON recursively redacts authorization, cookie, password, secret,
+  token, API key, client secret, access token, and refresh token keys. The raw
+  payload is authenticated and digested but not persisted by WOP-103.
+- Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
+  redaction, lint, typecheck, migration, build, and browser gates pass.
 
 ## In progress
 
-No implementation ticket is active.
+WOP-103 is on `agent/event-persistence` for pull request review.
 
 ## Pending work
 
-1. Open WOP-103 as a separate public issue.
-2. Persist one authoritative event and its initial activity without adding
-   delivery behavior.
+1. Review and merge WOP-103 after terminal GitHub checks.
+2. Open WOP-104 separately to show received events and their initial timeline.
 
 ## Decisions
 
-- Signatures use HMAC SHA-256 over `<unix-seconds>.<exact-raw-json-bytes>`.
-- Signature comparison is constant-time and timestamps allow five minutes of
-  clock difference in either direction.
-- Ingestion accepts only JSON objects up to 262,144 bytes.
-- Idempotency keys are validated now, but event persistence, reservation,
-  duplicate reuse, and conflict outcomes belong to WOP-103.
-- WOP-102 does not add event tables, activities, delivery, Redis, BullMQ,
-  retries, accounts, console event views, or deployment.
+- PostgreSQL owns idempotency through a composite unique index.
+- Event and first activity commit in one transaction.
+- Equivalent duplicates do not append activity.
+- Raw payload storage, destination association, delivery, Redis, BullMQ,
+  retries, accounts, event UI, and deployment remain outside WOP-103.
 
 ## Dead ends
 
-- The first Fastify parser integration exposed that its callback body type
-  remains `string | Buffer` and that the built-in `text/plain` parser reaches
-  route handlers instead of producing an unsupported-media error. The final
-  boundary normalizes parser input to `Buffer` and rejects non-JSON content
-  explicitly at the ingestion route.
+- Drizzle migration generation requires `DATABASE_URL` even though generation
+  does not use product data. Use the documented local PostgreSQL URL.
+- PostgreSQL driver errors wrap trigger messages. The rollback regression test
+  asserts rejection and committed state instead of private driver wording.
 - PowerShell may block `npm.ps1`. Use `npm.cmd` for local checks.
 
 ## Open questions
 
-None. WOP-103 already owns the next persistence boundary.
+None for WOP-103.
 
 ## Next step
 
-Begin WOP-103 from updated `main` as a separate issue and branch.
+Review WOP-103 as one persistence slice. Do not begin WOP-104 before its merge
+gate passes.
 
 ## Pending validation
 
-None for WOP-102. Its complete root Quality command passes locally and in both
-GitHub Actions contexts.
+Push and pull-request Quality checks must reach a terminal green state.
 
 ## Continuation prompt
 
 ```text
-Begin WOP-103 as a separate issue and branch from updated main. Persist one
-authoritative event and its initial activity with transactional idempotency.
-Do not add delivery, queues, retries, accounts, event-list UI, or deploy.
+Review and merge WOP-103 only after terminal GitHub checks. Then begin WOP-104
+as a separate issue and branch to show the received event list, detail, and
+initial timeline. Do not add delivery, queues, retries, accounts, or deploy.
 ```

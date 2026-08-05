@@ -9,6 +9,7 @@ import {
   fingerprintSecret,
   isWebhookTimestampFresh,
   maxWebhookBodyBytes,
+  redactWebhookPayload,
   verifyWebhookSignature,
   webhookTimestampToleranceSeconds,
 } from "./index.js";
@@ -118,5 +119,29 @@ describe("signed ingestion boundary", () => {
       ),
     ).toBe(false);
     expect(maxWebhookBodyBytes).toBe(262_144);
+  });
+
+  it("redacts credential-shaped values at every payload depth", () => {
+    expect(
+      redactWebhookPayload({
+        event: "invoice.paid",
+        token: "private",
+        nested: {
+          authorization: "Bearer private",
+          clientSecret: "private",
+          amount: 4200,
+        },
+        items: [{ api_key: "private", access_token: "private" }],
+      }),
+    ).toEqual({
+      event: "invoice.paid",
+      token: "[REDACTED]",
+      nested: {
+        authorization: "[REDACTED]",
+        clientSecret: "[REDACTED]",
+        amount: 4200,
+      },
+      items: [{ api_key: "[REDACTED]", access_token: "[REDACTED]" }],
+    });
   });
 });

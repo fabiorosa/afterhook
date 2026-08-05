@@ -14,6 +14,7 @@ import {
   digestWebhookPayload,
   isWebhookTimestampFresh,
   maxWebhookBodyBytes,
+  redactWebhookPayload,
   verifyWebhookSignature,
 } from "@afterhook/domain";
 import Fastify, { type FastifyInstance } from "fastify";
@@ -41,6 +42,7 @@ function ingestionError(
     | "ENDPOINT_NOT_FOUND"
     | "SIGNATURE_REJECTED"
     | "PAYLOAD_TOO_LARGE"
+    | "IDEMPOTENCY_CONFLICT"
     | "INTERNAL_ERROR",
   message: string,
 ) {
@@ -244,12 +246,34 @@ export function buildServer(
         );
     }
 
-    return reply.code(202).send(
+    const payloadDigest = digestWebhookPayload(rawBody);
+    const persisted = await repository.persistEvent({
+      endpointId: endpoint.id,
+      idempotencyKey: headers.data.idempotencyKey,
+      payloadDigest,
+      payloadRedacted: redactWebhookPayload(payload.data),
+      receivedAt: now(),
+    });
+
+    if (persisted.outcome === "conflict") {
+      return reply
+        .code(409)
+        .send(
+          ingestionError(
+            "IDEMPOTENCY_CONFLICT",
+            "The idempotency key is already associated with another payload.",
+          ),
+        );
+    }
+
+    return reply.code(persisted.outcome === "created" ? 202 : 200).send(
       ingestionReceiptSchema.parse({
         accepted: true,
+        eventId: persisted.eventId,
         endpointId: endpoint.id,
         idempotencyKey: headers.data.idempotencyKey,
-        payloadDigest: digestWebhookPayload(rawBody),
+        payloadDigest,
+        duplicate: persisted.outcome === "existing",
       }),
     );
   });

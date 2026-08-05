@@ -89,3 +89,18 @@ alter the authenticated representation. Raw bytes make the contract precise
 and compatible with conventional webhook clients. Including the timestamp
 limits replay exposure. Idempotency keys are validated in WOP-102, while their
 transactional reservation and duplicate outcomes remain in WOP-103.
+
+## ADR-009: Transactional event identity and initial evidence
+
+**Status:** accepted.
+
+WOP-103 uses the PostgreSQL unique boundary on
+`(endpoint_id, idempotency_key)` as the concurrency authority. A transaction
+inserts the `RECEIVED` event and its `event.received` activity together. If the
+unique reservation already exists, the repository compares payload digests and
+returns either the stable event identity or an idempotency conflict.
+
+The authenticated raw body is used for the SHA-256 digest but is not persisted
+in this slice. A recursively redacted JSON representation is stored for future
+inspection. Destination association remains deferred until a ticket owns that
+product decision.

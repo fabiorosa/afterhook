@@ -33,6 +33,7 @@ const destination: DestinationResponse = {
 const signingSecret = "ahsec_only_returned_once";
 const webhookTimestamp = 1785292800;
 const webhookNow = new Date(webhookTimestamp * 1000);
+const eventId = "75339b4d-bb60-43b6-93bd-30436cb6454a";
 
 function createRepository(
   ingestionEnabled = endpoint.enabled,
@@ -48,6 +49,7 @@ function createRepository(
           ? { id: endpoint.id, enabled: ingestionEnabled, signingSecret }
           : null,
       ),
+    persistEvent: () => Promise.resolve({ outcome: "created", eventId }),
   };
 }
 
@@ -124,9 +126,11 @@ describe("ingestion HTTP contract", () => {
     expect(response.statusCode).toBe(202);
     expect(response.json()).toEqual({
       accepted: true,
+      eventId,
       endpointId: endpoint.id,
       idempotencyKey: "invoice-4200",
       payloadDigest: digestWebhookPayload(rawBody),
+      duplicate: false,
     });
     expect(response.body).not.toContain(signingSecret);
   });
@@ -240,5 +244,44 @@ describe("ingestion HTTP contract", () => {
       message: "The request could not be processed.",
     });
     expect(response.body).not.toContain("private detail");
+  });
+
+  it("returns the stable event for duplicates and rejects key conflicts", async () => {
+    const duplicateApp = buildServer(
+      {
+        ...createRepository(),
+        persistEvent: () => Promise.resolve({ outcome: "existing", eventId }),
+      },
+      { now: () => webhookNow },
+    );
+    const conflictApp = buildServer(
+      {
+        ...createRepository(),
+        persistEvent: () => Promise.resolve({ outcome: "conflict" }),
+      },
+      { now: () => webhookNow },
+    );
+
+    const duplicate = await duplicateApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+    const conflict = await conflictApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+
+    expect(duplicate.statusCode).toBe(200);
+    expect(duplicate.json()).toMatchObject({ eventId, duplicate: true });
+    expect(conflict.statusCode).toBe(409);
+    expect(conflict.json()).toEqual({
+      error: "IDEMPOTENCY_CONFLICT",
+      message:
+        "The idempotency key is already associated with another payload.",
+    });
   });
 });

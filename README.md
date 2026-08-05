@@ -8,11 +8,12 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-102 is complete. A local operator can create and list secret-safe endpoints
+WOP-103 is complete. A local operator can create and list secret-safe endpoints
 and destinations, then send a bounded JSON object signed with the endpoint
 secret. The API verifies the timestamp and exact raw body, rejects replayed or
-altered requests, and returns only a safe receipt with the payload digest.
-Event persistence begins separately in WOP-103.
+altered requests, and atomically persists one authoritative event with its
+initial activity. Equivalent retries return the stable event ID. Reusing the
+same key with a different payload returns a safe conflict.
 
 ## Local development
 
@@ -65,9 +66,12 @@ JSON bytes:
 ```
 
 Requests must be within five minutes of the API clock and no larger than
-262,144 bytes. A valid request returns `202 Accepted` with the endpoint ID,
-idempotency key, and SHA-256 payload digest. This validates the ingestion
-boundary only. WOP-103 will persist the event and resolve same-key duplicates.
+262,144 bytes. A new request returns `202 Accepted` with the stable event ID,
+endpoint ID, idempotency key, SHA-256 payload digest, and `duplicate: false`.
+The same key and digest return the same event with `200 OK` and
+`duplicate: true`. The same key with another digest returns `409 Conflict`.
+Stored payloads redact common credential keys recursively. Raw payload bytes
+are authenticated but are not stored by this slice.
 
 ## First release
 
