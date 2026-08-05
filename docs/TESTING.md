@@ -27,6 +27,9 @@ WOP-102 adds deterministic coverage for ingestion header contracts, exact-byte
 payload digests, HMAC creation and verification, altered timestamp and body
 rejection, malformed signature lengths, and inclusive replay-window bounds.
 
+WOP-103 adds recursive credential-key redaction coverage and validates the
+stable event identity plus duplicate receipt contract.
+
 ## PostgreSQL integration tests
 
 - same key and same digest returns the existing event;
@@ -41,6 +44,13 @@ rejection, malformed signature lengths, and inclusive replay-window bounds.
 WOP-101 runs a real PostgreSQL migration before its repository tests. Those
 tests assert that endpoint secrets and destination authorization values are
 stored encrypted and that list projections do not expose them.
+
+WOP-103 proves new event plus initial activity commit, eight concurrent
+equivalent ingestions resolving to one event, same-digest reuse, different-
+digest conflict, and transaction rollback when activity insertion fails. A
+real Fastify and PostgreSQL test covers `202`, `200`, and `409` outcomes and
+verifies that credential-shaped payload values never appear in responses or
+stored redacted JSON.
 
 ## Redis and worker integration tests
 

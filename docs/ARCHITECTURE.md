@@ -56,13 +56,14 @@ Owns HTTP validation, signature verification, timestamp tolerance, payload
 limits, idempotency lookup, and durable event creation. It does not deliver the
 event.
 
-WOP-102 implements the HTTP boundary through
+WOP-102 implements the HTTP authentication boundary through
 `POST /v1/endpoints/:slug/events`. Fastify retains the exact
 `application/json` bytes before parsing. HMAC SHA-256 covers
 `<unix-seconds>.<raw-body>` and uses constant-time comparison. Requests are
-limited to 256 KiB and a five-minute replay window. The route validates the
-idempotency key and returns a digest receipt but deliberately does not reserve
-the key or persist an event. WOP-103 owns those authoritative transactions.
+limited to 256 KiB and a five-minute replay window. WOP-103 atomically reserves
+`(endpoint_id, idempotency_key)`, creates the `RECEIVED` event, and appends its
+`event.received` activity. Equivalent reuse returns the existing event ID.
+Reuse with another digest returns a safe conflict.
 
 ### Orchestration
 
@@ -170,6 +171,11 @@ boolean `hasAuthorization`.
 - `created_at`
 - `updated_at`
 
+WOP-103 implements the fields required by received-state persistence. It does
+not assign a destination or completion timestamp because orchestration and
+delivery have not begun. It stores only the recursively redacted JSON
+representation and the digest of the authenticated raw bytes.
+
 ### delivery_attempts
 
 - `id`
@@ -194,6 +200,9 @@ boolean `hasAuthorization`.
 - `type`
 - `metadata`
 - `created_at`
+
+WOP-103 creates exactly one `event.received` activity in the same transaction
+as a new event. Duplicate requests do not append duplicate activity.
 
 ## Security baseline
 
