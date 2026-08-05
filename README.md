@@ -8,12 +8,14 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-103 is complete. A local operator can create and list secret-safe endpoints
+WOP-104 is complete. A local operator can create and list secret-safe endpoints
 and destinations, then send a bounded JSON object signed with the endpoint
 secret. The API verifies the timestamp and exact raw body, rejects replayed or
 altered requests, and atomically persists one authoritative event with its
 initial activity. Equivalent retries return the stable event ID. Reusing the
-same key with a different payload returns a safe conflict.
+same key with a different payload returns a safe conflict. The console now
+lists received events and opens a redacted detail with the chronological
+activity that proves receipt without implying destination delivery.
 
 ## Local development
 
