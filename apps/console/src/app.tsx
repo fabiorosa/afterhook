@@ -1,5 +1,8 @@
 import { type SyntheticEvent, useEffect, useState } from "react";
 
+import { request } from "./api.js";
+import { EventsView } from "./events-view.js";
+
 type Endpoint = Readonly<{
   id: string;
   name: string;
@@ -15,22 +18,6 @@ type Destination = Readonly<{
   hasAuthorization: boolean;
 }>;
 type CreatedEndpoint = Endpoint & Readonly<{ signingSecret: string }>;
-
-async function request<T>(url: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    headers: { "content-type": "application/json" },
-    ...init,
-  });
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => undefined);
-    const message =
-      typeof body === "object" && body !== null && "message" in body
-        ? String(body.message)
-        : "Request failed.";
-    throw new Error(message);
-  }
-  return (await response.json()) as T;
-}
 
 function CopyButton({
   value,
@@ -60,7 +47,7 @@ function CopyButton({
   );
 }
 
-export function App() {
+function SetupView() {
   const [endpoints, setEndpoints] = useState<Endpoint[]>([]);
   const [destinations, setDestinations] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(true);
@@ -150,13 +137,7 @@ export function App() {
   }
 
   return (
-    <main className="shell">
-      <header className="topbar">
-        <a className="brand" href="/" aria-label="AfterHook setup home">
-          AfterHook
-        </a>
-        <p>Configuration</p>
-      </header>
+    <>
       <section className="intro" aria-labelledby="setup-title">
         <p className="eyebrow">FIRST CONNECTION</p>
         <h1 id="setup-title">Set up a safe path for every webhook.</h1>
@@ -336,6 +317,61 @@ export function App() {
           </div>
         ) : null}
       </section>
+    </>
+  );
+}
+
+function readRoute(): { view: "events" | "setup"; eventId?: string } {
+  const hash = window.location.hash.replace(/^#/, "");
+  if (hash === "setup") return { view: "setup" };
+  if (hash.startsWith("events/")) {
+    const eventId = hash.slice("events/".length);
+    return eventId === "" ? { view: "events" } : { view: "events", eventId };
+  }
+  return { view: "events" };
+}
+
+export function App() {
+  const [route, setRoute] = useState(readRoute);
+
+  useEffect(() => {
+    const handleRoute = () => {
+      setRoute(readRoute());
+    };
+    window.addEventListener("hashchange", handleRoute);
+    return () => {
+      window.removeEventListener("hashchange", handleRoute);
+    };
+  }, []);
+
+  return (
+    <main className="shell">
+      <header className="topbar">
+        <a className="brand" href="#events" aria-label="AfterHook events home">
+          AfterHook
+        </a>
+        <nav aria-label="Primary navigation">
+          <a
+            aria-current={route.view === "events" ? "page" : undefined}
+            href="#events"
+          >
+            Events
+          </a>
+          <a
+            aria-current={route.view === "setup" ? "page" : undefined}
+            href="#setup"
+          >
+            Setup
+          </a>
+        </nav>
+      </header>
+      {route.view === "setup" ? (
+        <SetupView />
+      ) : route.eventId === undefined ? (
+        <EventsView />
+      ) : (
+        <EventsView eventId={route.eventId} />
+      )}
     </main>
   );
 }
