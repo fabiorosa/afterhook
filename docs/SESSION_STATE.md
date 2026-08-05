@@ -20,17 +20,23 @@ Updated: 2026-08-05.
 - Stored JSON recursively redacts authorization, cookie, password, secret,
   token, API key, client secret, access token, and refresh token keys. The raw
   payload is authenticated and digested but not persisted by WOP-103.
+- WOP-104 adds safe newest-first event list and redacted event detail API
+  projections, with chronological activity and indistinguishable not-found
+  responses.
+- The React console has addressable Events and Setup views. Event inspection
+  explains that receipt is durable evidence, not destination delivery, and
+  covers loading, empty, error, retry, keyboard, desktop, and 390 px states.
 - Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
   redaction, lint, typecheck, migration, build, and browser gates pass.
 
 ## In progress
 
-WOP-103 is on `agent/event-persistence` for pull request review.
+WOP-104 is on `agent/event-inspection` for draft pull request review.
 
 ## Pending work
 
-1. Review and merge WOP-103 after terminal GitHub checks.
-2. Open WOP-104 separately to show received events and their initial timeline.
+1. Review and merge WOP-104 after terminal GitHub checks.
+2. Open the next delivery slice separately. Do not add it to WOP-104.
 
 ## Decisions
 
@@ -38,7 +44,10 @@ WOP-103 is on `agent/event-persistence` for pull request review.
 - Event and first activity commit in one transaction.
 - Equivalent duplicates do not append activity.
 - Raw payload storage, destination association, delivery, Redis, BullMQ,
-  retries, accounts, event UI, and deployment remain outside WOP-103.
+  retries, accounts, and deployment remain outside WOP-104.
+- Event APIs return narrow Zod projections; malformed and missing IDs share one
+  safe not-found response.
+- The console uses hash routes until navigation needs justify a router.
 
 ## Dead ends
 
@@ -50,12 +59,12 @@ WOP-103 is on `agent/event-persistence` for pull request review.
 
 ## Open questions
 
-None for WOP-103.
+None for WOP-104.
 
 ## Next step
 
-Review WOP-103 as one persistence slice. Do not begin WOP-104 before its merge
-gate passes.
+Review WOP-104 as one inspection slice. Do not begin delivery work before its
+merge gate passes.
 
 ## Pending validation
 
@@ -64,7 +73,7 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-103 only after terminal GitHub checks. Then begin WOP-104
-as a separate issue and branch to show the received event list, detail, and
-initial timeline. Do not add delivery, queues, retries, accounts, or deploy.
+Review and merge WOP-104 only after terminal GitHub checks. Then select the next
+delivery slice as a separate issue and branch. Do not add delivery, queues,
+retries, accounts, or deploy to WOP-104.
 ```

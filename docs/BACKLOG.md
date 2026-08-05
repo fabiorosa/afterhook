@@ -23,7 +23,7 @@ CI is green, and the next ticket is a single vertical capability.
 | WOP-101 | Create endpoint and destination records with secret-safe setup UX. GitHub #3   | done   |
 | WOP-102 | Accept signed JSON with timestamp, size, and idempotency validation. GitHub #5 | done   |
 | WOP-103 | Persist one authoritative event and append its initial activity. GitHub #7     | done   |
-| WOP-104 | Show event list and event detail with received-state timeline                  | todo   |
+| WOP-104 | Show event list and event detail with received-state timeline. GitHub #9       | done   |
 
 **Gate:** a reviewer can create an endpoint, send one signed event, see it in
 the console, and observe safe duplicate behavior. Invalid input and empty,

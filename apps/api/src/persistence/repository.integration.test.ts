@@ -265,4 +265,36 @@ describe("event persistence", () => {
       "private",
     );
   });
+
+  it("returns newest-first list and chronological safe detail", async () => {
+    const input = await createEventInput();
+    const first = await repository.persistEvent(input);
+    const second = await repository.persistEvent({
+      ...input,
+      idempotencyKey: "invoice-4201",
+      payloadDigest: `sha256:${"b".repeat(64)}`,
+      payloadRedacted: { event: "invoice.failed" },
+      receivedAt: new Date("2026-08-05T12:01:00.000Z"),
+    });
+
+    const listed = await repository.listEvents();
+    const firstId = first.outcome === "conflict" ? "" : first.eventId;
+    const secondId = second.outcome === "conflict" ? "" : second.eventId;
+    const detail = await repository.findEventDetail(firstId);
+
+    expect(listed.map((event) => event.id)).toEqual([secondId, firstId]);
+    expect(listed[0]).toMatchObject({
+      endpoint: { name: "Billing events" },
+      attemptCount: 0,
+    });
+    expect(detail).toMatchObject({
+      id: firstId,
+      payloadRedacted: { event: "invoice.paid", token: "[REDACTED]" },
+      activities: [{ type: "event.received" }],
+    });
+    expect(JSON.stringify(detail)).not.toContain("secret_encrypted");
+    await expect(
+      repository.findEventDetail("39a92b9a-b6f5-4ea3-a06f-3f339669cbe2"),
+    ).resolves.toBeNull();
+  });
 });

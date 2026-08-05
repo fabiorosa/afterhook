@@ -91,6 +91,12 @@ not expose unrestricted query builders to presentation code.
 Owns human-readable status, filtering, timelines, feedback, and recovery
 actions. It does not infer delivery truth from queue state.
 
+WOP-104 exposes dedicated list and detail projections instead of database
+rows. The list contains stable identity, endpoint identity, received time,
+status, and attempt count. The detail adds only the stored redacted payload and
+chronological activity. Hash routes keep Events and Setup directly addressable
+without introducing router state before the console needs it.
+
 ## Source-of-truth rules
 
 - PostgreSQL is authoritative for event and attempt state.

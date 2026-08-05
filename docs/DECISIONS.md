@@ -104,3 +104,17 @@ The authenticated raw body is used for the SHA-256 digest but is not persisted
 in this slice. A recursively redacted JSON representation is stored for future
 inspection. Destination association remains deferred until a ticket owns that
 product decision.
+
+## ADR-010: Safe event projections and addressable console views
+
+**Status:** accepted.
+
+WOP-104 reads event history through explicit Zod list and detail projections.
+Neither response includes encrypted credentials, raw payload bytes, internal
+database fields, or unrestricted repository records. Missing and malformed
+event identifiers share the same safe public response.
+
+The console uses small hash routes for Events, event detail, and Setup. This
+makes inspection views directly addressable and keyboard-native while avoiding
+a routing dependency before nested navigation or server rendering requires
+one.

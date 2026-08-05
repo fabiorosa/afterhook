@@ -30,6 +30,10 @@ rejection, malformed signature lengths, and inclusive replay-window bounds.
 WOP-103 adds recursive credential-key redaction coverage and validates the
 stable event identity plus duplicate receipt contract.
 
+WOP-104 validates the safe event list and detail contracts, allowed status
+values, chronological activity projection, and indistinguishable missing or
+malformed event responses.
+
 ## PostgreSQL integration tests
 
 - same key and same digest returns the existing event;
@@ -51,6 +55,10 @@ digest conflict, and transaction rollback when activity insertion fails. A
 real Fastify and PostgreSQL test covers `202`, `200`, and `409` outcomes and
 verifies that credential-shaped payload values never appear in responses or
 stored redacted JSON.
+
+WOP-104 proves newest-first list ordering, chronological activity ordering,
+zero attempts before delivery exists, safe redacted detail, and missing-event
+behavior against real PostgreSQL.
 
 ## Redis and worker integration tests
 
@@ -95,6 +103,10 @@ mobile viewport.
 WOP-101 adds a Chromium setup journey: create endpoint, copy and dismiss the
 one-time secret, create a destination with authorization, and confirm the
 console only communicates encrypted authorization metadata.
+
+WOP-104 adds Chromium coverage for event list and redacted detail, received
+versus delivered language, loading, empty, error and retry states, keyboard row
+navigation, and a 390 px viewport without horizontal overflow.
 
 ## Static gates
 

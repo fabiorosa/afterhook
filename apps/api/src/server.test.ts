@@ -1,6 +1,8 @@
 import type {
   DestinationResponse,
   EndpointResponse,
+  EventDetail,
+  EventListItem,
 } from "@afterhook/contracts";
 import {
   createWebhookSignature,
@@ -34,6 +36,31 @@ const signingSecret = "ahsec_only_returned_once";
 const webhookTimestamp = 1785292800;
 const webhookNow = new Date(webhookTimestamp * 1000);
 const eventId = "75339b4d-bb60-43b6-93bd-30436cb6454a";
+const eventItem: EventListItem = {
+  id: eventId,
+  endpoint: {
+    id: endpoint.id,
+    name: endpoint.name,
+    slug: endpoint.slug,
+  },
+  idempotencyKey: "invoice-4200",
+  status: "RECEIVED",
+  receivedAt: timestamp,
+  attemptCount: 0,
+};
+const eventDetail: EventDetail = {
+  ...eventItem,
+  payloadDigest: `sha256:${"a".repeat(64)}`,
+  payloadRedacted: { event: "invoice.paid", token: "[REDACTED]" },
+  activities: [
+    {
+      id: "17bfabde-4c6c-4722-a3a2-6c9c9e77e49c",
+      type: "event.received",
+      metadata: { payloadDigest: `sha256:${"a".repeat(64)}` },
+      createdAt: timestamp,
+    },
+  ],
+};
 
 function createRepository(
   ingestionEnabled = endpoint.enabled,
@@ -50,6 +77,9 @@ function createRepository(
           : null,
       ),
     persistEvent: () => Promise.resolve({ outcome: "created", eventId }),
+    listEvents: () => Promise.resolve([eventItem]),
+    findEventDetail: (id) =>
+      Promise.resolve(id === eventId ? eventDetail : null),
   };
 }
 
@@ -282,6 +312,43 @@ describe("ingestion HTTP contract", () => {
       error: "IDEMPOTENCY_CONFLICT",
       message:
         "The idempotency key is already associated with another payload.",
+    });
+  });
+});
+
+describe("event inspection HTTP contract", () => {
+  const app = buildServer(createRepository());
+
+  it("returns safe list and detail projections", async () => {
+    const listed = await app.inject({ method: "GET", url: "/v1/events" });
+    const detailed = await app.inject({
+      method: "GET",
+      url: `/v1/events/${eventId}`,
+    });
+
+    expect(listed.statusCode).toBe(200);
+    expect(listed.json()).toEqual([eventItem]);
+    expect(detailed.statusCode).toBe(200);
+    expect(detailed.json()).toEqual(eventDetail);
+    expect(`${listed.body}${detailed.body}`).not.toContain("private");
+  });
+
+  it("returns the same safe not-found response for invalid or missing IDs", async () => {
+    const invalid = await app.inject({
+      method: "GET",
+      url: "/v1/events/not-a-uuid",
+    });
+    const missing = await app.inject({
+      method: "GET",
+      url: "/v1/events/39a92b9a-b6f5-4ea3-a06f-3f339669cbe2",
+    });
+
+    expect(invalid.statusCode).toBe(404);
+    expect(missing.statusCode).toBe(404);
+    expect(invalid.json()).toEqual(missing.json());
+    expect(missing.json()).toEqual({
+      error: "EVENT_NOT_FOUND",
+      message: "The event could not be found.",
     });
   });
 });

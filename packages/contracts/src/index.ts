@@ -123,6 +123,48 @@ export const ingestionErrorSchema = z.object({
   message: z.string(),
 });
 
+export const eventStatusSchema = z.enum([
+  "RECEIVED",
+  "QUEUED",
+  "PROCESSING",
+  "DELIVERED",
+  "FAILED",
+  "DEAD_LETTER",
+]);
+
+export const eventEndpointSchema = z.object({
+  id: z.uuid(),
+  name: endpointNameSchema,
+  slug: endpointSlugSchema,
+});
+
+export const eventListItemSchema = z.object({
+  id: z.uuid(),
+  endpoint: eventEndpointSchema,
+  idempotencyKey: idempotencyKeySchema,
+  status: eventStatusSchema,
+  receivedAt: z.iso.datetime(),
+  attemptCount: z.number().int().nonnegative(),
+});
+
+export const eventActivitySchema = z.object({
+  id: z.uuid(),
+  type: z.string().min(1),
+  metadata: z.record(z.string(), z.unknown()),
+  createdAt: z.iso.datetime(),
+});
+
+export const eventDetailSchema = eventListItemSchema.extend({
+  payloadDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
+  payloadRedacted: z.record(z.string(), z.unknown()),
+  activities: z.array(eventActivitySchema),
+});
+
+export const eventInspectionErrorSchema = z.object({
+  error: z.literal("EVENT_NOT_FOUND"),
+  message: z.string(),
+});
+
 export type CreateEndpointInput = z.infer<typeof createEndpointInputSchema>;
 export type CreateDestinationInput = z.infer<
   typeof createDestinationInputSchema
@@ -136,3 +178,5 @@ export type WebhookHeaders = z.infer<typeof webhookHeadersSchema>;
 export type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
 export type IngestionReceipt = z.infer<typeof ingestionReceiptSchema>;
 export type IngestionError = z.infer<typeof ingestionErrorSchema>;
+export type EventListItem = z.infer<typeof eventListItemSchema>;
+export type EventDetail = z.infer<typeof eventDetailSchema>;
