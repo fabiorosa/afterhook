@@ -93,16 +93,21 @@ Updated: 2026-08-06.
   Chromium scenarios. On Windows, Playwright completes every assertion but its
   web-server teardown can outlive the command timeout; GitHub CI remains the
   terminal browser-process gate.
+- WOP-302 was merged through PR #24. Main Quality is pending for merge
+  `54c6614`.
+- WOP-303 adds a route-complete OpenAPI 3.1 contract, clone-clean setup,
+  security reporting boundary, and pre-deployment runbook without claiming a
+  hosted environment.
 
 ## In progress
 
-WOP-302 is published as draft PR #24 from `agent/deterministic-demo` for
-GitHub issue #23.
+WOP-303 is published as draft PR #26 from `agent/api-operations-docs` for
+GitHub issue #25.
 
 ## Pending work
 
-1. Review and merge WOP-302 only after terminal GitHub checks.
-2. Open WOP-303 separately after the WOP-302 merge gate.
+1. Review and merge WOP-303 only after terminal GitHub checks.
+2. Open WOP-304 separately after the WOP-303 merge gate.
 
 ## Decisions
 
@@ -129,6 +134,8 @@ GitHub issue #23.
   projection and keeps filtering server-authoritative.
 - WOP-302 requires explicit demo enablement and uses persisted ownership as the
   only reset authority.
+- WOP-303 publishes only safe public contract fields and documents deployment
+  requirements without selecting or claiming a hosted platform.
 
 ## Dead ends
 
@@ -140,11 +147,11 @@ GitHub issue #23.
 
 ## Open questions
 
-None for WOP-302.
+None for WOP-303.
 
 ## Next step
 
-Publish and review WOP-302. Do not begin WOP-303 before its merge gate passes.
+Publish and review WOP-303. Do not begin WOP-304 before its merge gate passes.
 
 ## Pending validation
 
@@ -154,8 +161,7 @@ states.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-302 only after terminal GitHub checks. Then open WOP-303 as
-a separate issue and branch for OpenAPI, fresh-clone setup, security policy,
-and deployment runbook. Do not add release evidence or deployment execution to
-WOP-302.
+Review and merge WOP-303 only after terminal GitHub checks. Then open WOP-304 as
+a separate issue and branch for the final desktop, keyboard, privacy, and
+mobile walkthroughs. Do not deploy or publish a release before WOP-305.
 ```

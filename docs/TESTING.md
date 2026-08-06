@@ -159,6 +159,11 @@ idempotent reset removes only demo-owned events while preserving an ordinary
 endpoint, destination, event, and attempt. Chromium launches a fictional event
 and resets it by keyboard at 390 px without credential exposure or overflow.
 
+WOP-303 reads the published OpenAPI document and asserts every public Fastify
+route is present, including the guarded demo routes. Fresh-clone instructions
+run the existing migration, quality, and process boundaries; security and
+deployment documents state their limitations rather than claim a hosted state.
+
 ## Static gates
 
 - TypeScript strict typecheck.

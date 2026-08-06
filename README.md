@@ -1,27 +1,18 @@
 # AfterHook
 
-AfterHook is an open-source webhook operations system. It starts by giving
-software teams a safe way to configure an inbound endpoint and an HTTP
-destination before ingestion, delivery, and retry behavior are introduced.
+AfterHook is an open-source webhook operations system for receiving,
+inspecting, delivering, and safely recovering webhook-driven work.
 
 Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-202 is complete. A local operator can create and list secret-safe endpoints
-and destinations, then send a bounded JSON object signed with the endpoint
-secret. The API verifies the timestamp and exact raw body, rejects replayed or
-altered requests, and atomically persists one authoritative event with its
-initial activity. Equivalent retries return the stable event ID. Reusing the
-same key with a different payload returns a safe conflict. The console now
-lists received events and opens a redacted detail with the chronological
-activity that proves receipt without implying destination delivery.
-Persisted events cross an idempotent BullMQ boundary as identifier-only jobs.
-The worker publishes an expiring Redis heartbeat, and `/health` exposes only
-safe worker availability and the last observed timestamp.
-The delivery transport can call a deterministic local destination with pinned
-DNS, SSRF-safe defaults, no redirects, bounded timeouts, and bounded response
-discarding. Queue consumption waits for authoritative attempts in WOP-203.
+The current local-first MVP supports signed JSON ingestion, PostgreSQL
+idempotency, identifier-only BullMQ handoff, bounded HTTP delivery, append-only
+attempt history, automatic retries, dead-letter handling, safe manual recovery,
+and an operational React console. Explicitly enabled demo controls create only
+fictional success, timeout, and retryable-failure scenarios and can reset only
+their own persistently marked records.
 
 ## Local development
 
@@ -42,6 +33,8 @@ $env:TEST_DATABASE_URL = $env:DATABASE_URL
 $env:REDIS_URL = "redis://127.0.0.1:56379/0"
 $env:TEST_REDIS_URL = "redis://127.0.0.1:56379/15"
 $env:SECRET_ENCRYPTION_KEY = node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
+$env:AFTERHOOK_DEMO_ENABLED = "true"
+$env:AFTERHOOK_DEMO_DESTINATION_ORIGIN = "http://127.0.0.1:3201"
 npm --workspace @afterhook/api run db:migrate
 npm run build
 npm run quality
@@ -59,8 +52,9 @@ npm --workspace @afterhook/console run dev
 
 Open `http://127.0.0.1:5173`. The quality command runs formatting, lint,
 strict TypeScript, unit tests, a fresh PostgreSQL migration and integration
-tests, a Chromium setup journey, and production builds. It requires the local
-PostgreSQL and Redis containers to be running.
+tests, Chromium journeys, and production builds. It requires the local
+PostgreSQL and Redis containers to be running. Use `npm.cmd` in PowerShell if
+the machine blocks `npm.ps1`.
 
 ## Signed ingestion contract
 
@@ -84,11 +78,18 @@ endpoint ID, idempotency key, SHA-256 payload digest, and `duplicate: false`.
 The same key and digest return the same event with `200 OK` and
 `duplicate: true`. The same key with another digest returns `409 Conflict`.
 Stored payloads redact common credential keys recursively. Raw payload bytes
-are authenticated but are not stored by this slice.
+are encrypted only for delivery and are never returned by inspection APIs.
+
+## API and operations
+
+The versioned draft [OpenAPI contract](docs/openapi.yaml) covers every public
+route and safe response shape. Read [SECURITY.md](SECURITY.md) before reporting
+a vulnerability and the [deployment runbook](docs/DEPLOYMENT.md) before choosing
+hosting. The runbook is not a deployed-service claim.
 
 ## First release
 
-The MVP will eventually prove one complete journey:
+The MVP release will prove one complete journey:
 
 1. create an endpoint and destination;
 2. send a signed webhook;
