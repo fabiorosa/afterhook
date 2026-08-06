@@ -1,0 +1,16 @@
+{
+  "name": "@afterhook/delivery",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "ipaddr.js": "^2.5.0",
+    "undici": "^8.10.0"
+  }
+}
