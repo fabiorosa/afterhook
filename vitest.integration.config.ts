@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
+    fileParallelism: false,
     include: [
       "apps/api/src/persistence/**/*.integration.test.ts",
       "apps/destination/src/**/*.integration.test.ts",

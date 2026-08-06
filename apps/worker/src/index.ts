@@ -2,6 +2,7 @@ import { hostname } from "node:os";
 
 import { createSecretCipher } from "@afterhook/domain";
 import {
+  createEventQueue,
   createRedisConnection,
   createWorkerHeartbeat,
   deliveryQueueName,
@@ -9,7 +10,10 @@ import {
 import { Worker } from "bullmq";
 
 import { createAttemptRepository } from "./attempt-repository.js";
-import { createDeliveryProcessor } from "./processor.js";
+import {
+  createDeliveryProcessor,
+  reconcileRetrySchedules,
+} from "./processor.js";
 
 const redisUrl = process.env.REDIS_URL;
 const databaseUrl = process.env.DATABASE_URL;
@@ -26,6 +30,7 @@ if (
 
 const workerId = process.env.AFTERHOOK_WORKER_ID ?? `worker@${hostname()}`;
 const redis = createRedisConnection(redisUrl);
+const eventQueue = createEventQueue(redis);
 const heartbeat = createWorkerHeartbeat(redis, { workerId });
 const attempts = createAttemptRepository(
   databaseUrl,
@@ -33,6 +38,8 @@ const attempts = createAttemptRepository(
 );
 const processDelivery = createDeliveryProcessor(attempts, {
   allowPrivateNetwork: process.env.ALLOW_PRIVATE_DESTINATIONS === "true",
+  scheduleRetry: (eventId, attemptNumber, delayMilliseconds) =>
+    eventQueue.enqueueRetry(eventId, attemptNumber, delayMilliseconds),
 });
 const worker = new Worker(
   deliveryQueueName,
@@ -41,14 +48,28 @@ const worker = new Worker(
 );
 
 await heartbeat.start();
+const reconcileRetries = async () => {
+  await reconcileRetrySchedules(
+    attempts,
+    (eventId, attemptNumber, delayMilliseconds) =>
+      eventQueue.enqueueRetry(eventId, attemptNumber, delayMilliseconds),
+  );
+};
+await reconcileRetries();
+const reconciliationTimer = setInterval(() => {
+  void reconcileRetries().catch(() => undefined);
+}, 5_000);
+reconciliationTimer.unref();
 console.info(JSON.stringify({ event: "worker.ready", workerId }));
 
 let stopping = false;
 async function stop() {
   if (stopping) return;
   stopping = true;
+  clearInterval(reconciliationTimer);
   await worker.close();
   await heartbeat.stop();
+  await eventQueue.close();
   await attempts.close();
   await redis.quit();
   console.info(JSON.stringify({ event: "worker.stopped", workerId }));

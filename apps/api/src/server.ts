@@ -101,6 +101,7 @@ export function buildServer(
   const now = options.now ?? (() => new Date());
   const eventQueue = options.eventQueue ?? {
     enqueue: () => Promise.resolve(),
+    enqueueRetry: () => Promise.resolve(),
     readWorkerHeartbeat: () => Promise.resolve(null),
     close: () => Promise.resolve(),
   };

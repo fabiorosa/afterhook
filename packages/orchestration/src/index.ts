@@ -14,6 +14,11 @@ export type RedisConnection = Redis;
 
 export type EventQueue = Readonly<{
   enqueue: (eventId: string) => Promise<void>;
+  enqueueRetry: (
+    eventId: string,
+    attemptNumber: number,
+    delayMilliseconds: number,
+  ) => Promise<void>;
   readWorkerHeartbeat: () => Promise<WorkerHeartbeat | null>;
   close: () => Promise<void>;
 }>;
@@ -34,6 +39,21 @@ export function createEventQueue(connection: RedisConnection): EventQueue {
       await queue.add("deliver-event", job, {
         jobId: eventId,
         removeOnComplete: false,
+        removeOnFail: false,
+      });
+    },
+    async enqueueRetry(eventId, attemptNumber, delayMilliseconds) {
+      const job = deliveryJobSchema.parse({ eventId });
+      if (!Number.isInteger(attemptNumber) || attemptNumber < 2) {
+        throw new Error("Retry attempt number must be at least two.");
+      }
+      if (!Number.isFinite(delayMilliseconds) || delayMilliseconds < 0) {
+        throw new Error("Retry delay must be a non-negative number.");
+      }
+      await queue.add("retry-delivery", job, {
+        jobId: `${eventId}:attempt:${String(attemptNumber)}`,
+        delay: Math.round(delayMilliseconds),
+        removeOnComplete: true,
         removeOnFail: false,
       });
     },
