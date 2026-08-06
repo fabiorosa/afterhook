@@ -98,16 +98,19 @@ Updated: 2026-08-06.
 - WOP-303 adds a route-complete OpenAPI 3.1 contract, clone-clean setup,
   security reporting boundary, and pre-deployment runbook without claiming a
   hosted environment.
+- WOP-304 names the final real-process Chromium journey: an operator opens a
+  dead-letter event from the desktop list by keyboard, confirms private payload
+  and delivery values remain absent, safely requests recovery, and rechecks the
+  fourth delivered attempt at 390 px without horizontal overflow.
 
 ## In progress
 
-WOP-303 is published as draft PR #26 from `agent/api-operations-docs` for
-GitHub issue #25.
+WOP-304 is prepared from `agent/operator-walkthroughs` for GitHub issue #27.
 
 ## Pending work
 
-1. Review and merge WOP-303 only after terminal GitHub checks.
-2. Open WOP-304 separately after the WOP-303 merge gate.
+1. Publish and review WOP-304 after terminal GitHub checks.
+2. Do not begin WOP-305 deployment, evidence capture, or release work.
 
 ## Decisions
 
@@ -136,6 +139,8 @@ GitHub issue #25.
   only reset authority.
 - WOP-303 publishes only safe public contract fields and documents deployment
   requirements without selecting or claiming a hosted platform.
+- WOP-304 proves the existing operator journey through the real local processes
+  without adding product capability, publishing evidence, or deploying.
 
 ## Dead ends
 
@@ -147,11 +152,11 @@ GitHub issue #25.
 
 ## Open questions
 
-None for WOP-303.
+None for WOP-304.
 
 ## Next step
 
-Publish and review WOP-303. Do not begin WOP-304 before its merge gate passes.
+Open and review the WOP-304 draft PR after terminal quality checks.
 
 ## Pending validation
 
@@ -161,7 +166,6 @@ states.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-303 only after terminal GitHub checks. Then open WOP-304 as
-a separate issue and branch for the final desktop, keyboard, privacy, and
-mobile walkthroughs. Do not deploy or publish a release before WOP-305.
+Review and merge WOP-304 only after terminal GitHub checks. Do not deploy,
+capture public evidence, or publish a release before WOP-305.
 ```
