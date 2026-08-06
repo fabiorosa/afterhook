@@ -1,17 +1,35 @@
 import { createSecretCipher } from "@afterhook/domain";
+import {
+  createEventQueue,
+  createRedisConnection,
+} from "@afterhook/orchestration";
 
 import { createPostgresRepository } from "./persistence/repository.js";
 import { buildServer } from "./server.js";
 
 const databaseUrl = process.env.DATABASE_URL;
 const encryptionKey = process.env.SECRET_ENCRYPTION_KEY;
+const redisUrl = process.env.REDIS_URL;
 
-if (databaseUrl === undefined || encryptionKey === undefined) {
-  throw new Error("DATABASE_URL and SECRET_ENCRYPTION_KEY are required.");
+if (
+  databaseUrl === undefined ||
+  encryptionKey === undefined ||
+  redisUrl === undefined
+) {
+  throw new Error(
+    "DATABASE_URL, SECRET_ENCRYPTION_KEY, and REDIS_URL are required.",
+  );
 }
 
 const cipher = createSecretCipher(encryptionKey);
 const repository = createPostgresRepository(databaseUrl, cipher);
-const app = buildServer(repository);
+const redis = createRedisConnection(redisUrl);
+const eventQueue = createEventQueue(redis);
+const app = buildServer(repository, { eventQueue });
+
+app.addHook("onClose", async () => {
+  await eventQueue.close();
+  await redis.quit();
+});
 
 await app.listen({ host: "127.0.0.1", port: Number(process.env.PORT ?? 3001) });

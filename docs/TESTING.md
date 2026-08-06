@@ -34,6 +34,10 @@ WOP-104 validates the safe event list and detail contracts, allowed status
 values, chronological activity projection, and indistinguishable missing or
 malformed event responses.
 
+WOP-201 validates identifier-only delivery jobs, strict heartbeat records,
+safe public health projections, persistence-before-queue ordering, temporary
+queue failures, and same-key queue retry behavior.
+
 ## PostgreSQL integration tests
 
 - same key and same digest returns the existing event;
@@ -61,6 +65,10 @@ zero attempts before delivery exists, safe redacted detail, and missing-event
 behavior against real PostgreSQL.
 
 ## Redis and worker integration tests
+
+WOP-201 uses real Redis to prove that duplicate event handoffs create one
+waiting BullMQ job containing only the event UUID. It also proves heartbeat
+renewal, TTL bounds, and expiry after the publisher stops.
 
 - persisted event becomes a queued job;
 - worker records start before delivery;

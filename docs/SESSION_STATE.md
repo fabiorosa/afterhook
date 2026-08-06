@@ -26,17 +26,25 @@ Updated: 2026-08-05.
 - The React console has addressable Events and Setup views. Event inspection
   explains that receipt is durable evidence, not destination delivery, and
   covers loading, empty, error, retry, keyboard, desktop, and 390 px states.
+- WOP-104 was merged through PR #10. Main Quality run `31058043837` passed.
+- WOP-201 adds Redis and BullMQ with strict `{ eventId }` jobs keyed by the
+  stable event UUID. PostgreSQL persistence happens before queue handoff.
+- Queue failure preserves the event and returns a safe temporary response. An
+  equivalent retry can enqueue the same job without duplicating the event.
+- The worker publishes an expiring heartbeat. `/health` exposes only healthy or
+  unavailable status plus the last observed timestamp.
 - Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
   redaction, lint, typecheck, migration, build, and browser gates pass.
 
 ## In progress
 
-WOP-104 is on `agent/event-inspection` for draft pull request review.
+WOP-201 is on `agent/queue-handoff` for draft pull request review.
 
 ## Pending work
 
-1. Review and merge WOP-104 after terminal GitHub checks.
-2. Open the next delivery slice separately. Do not add it to WOP-104.
+1. Review and merge WOP-201 after terminal GitHub checks.
+2. Open WOP-202 separately for destination assignment, SSRF boundaries, and
+   bounded HTTP delivery.
 
 ## Decisions
 
@@ -48,6 +56,9 @@ WOP-104 is on `agent/event-inspection` for draft pull request review.
 - Event APIs return narrow Zod projections; malformed and missing IDs share one
   safe not-found response.
 - The console uses hash routes until navigation needs justify a router.
+- BullMQ job data contains only the event UUID and uses it as the job ID.
+- The WOP-201 worker publishes heartbeat only. It does not consume delivery
+  jobs or transition event state.
 
 ## Dead ends
 
@@ -59,12 +70,12 @@ WOP-104 is on `agent/event-inspection` for draft pull request review.
 
 ## Open questions
 
-None for WOP-104.
+None for WOP-201.
 
 ## Next step
 
-Review WOP-104 as one inspection slice. Do not begin delivery work before its
-merge gate passes.
+Review WOP-201 as one queue handoff slice. Do not begin WOP-202 before its merge
+gate passes.
 
 ## Pending validation
 
@@ -73,7 +84,7 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-104 only after terminal GitHub checks. Then select the next
-delivery slice as a separate issue and branch. Do not add delivery, queues,
-retries, accounts, or deploy to WOP-104.
+Review and merge WOP-201 only after terminal GitHub checks. Then open WOP-202 as
+a separate issue and branch for bounded HTTP delivery. Do not add attempts,
+retry policy, dead-letter behavior, accounts, or deploy to WOP-201.
 ```
