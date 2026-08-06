@@ -152,6 +152,13 @@ inspects attempt four, validates clipboard success and denial feedback, follows
 manual recovery to its terminal result without reload, and repeats the detail
 at 390 px without overflow or credential exposure.
 
+WOP-302 validates strict scenario and empty reset contracts, disabled demo
+mutations, identifier-only queue handoff, and safe responses. PostgreSQL
+coverage maps all three scenarios to the local destination and proves an
+idempotent reset removes only demo-owned events while preserving an ordinary
+endpoint, destination, event, and attempt. Chromium launches a fictional event
+and resets it by keyboard at 390 px without credential exposure or overflow.
+
 ## Static gates
 
 - TypeScript strict typecheck.

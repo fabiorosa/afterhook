@@ -313,3 +313,18 @@ bodies, headers, encrypted fields, and payload data. The console builds
 deterministic plain-text diagnostics only from this safe projection. Manual
 recovery polls the authoritative event read until a terminal result so feedback
 does not depend on queue state or a page reload.
+
+## WOP-302 demonstration boundary
+
+Demo mutations exist only when `AFTERHOOK_DEMO_ENABLED=true`. The API creates
+one stable fictional event per success, timeout, or retryable-failure scenario
+and hands only its UUID to the same BullMQ and worker path used by ordinary
+events. Scenario content is fixed, credential-free, encrypted for delivery,
+and separately stored as a safe inspection projection.
+
+Demo endpoints and destinations carry a nullable, unique `demo_key`. Reset
+deletes events whose endpoint owns that marker, then removes only marked setup
+records in the same PostgreSQL transaction. Ordinary records have a null marker
+and cannot match the reset predicate. Disabled environments still expose a
+read-only capability response so the console can omit the controls, while both
+mutation routes return not found.

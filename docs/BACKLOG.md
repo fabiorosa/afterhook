@@ -47,7 +47,7 @@ and manual recovery pass against real PostgreSQL, Redis, and HTTP processes.
 | ID      | Ticket                                                                                    | Status |
 | ------- | ----------------------------------------------------------------------------------------- | ------ |
 | WOP-301 | Complete filters, attempt detail, copyable diagnostics, and recovery feedback. GitHub #21 | done   |
-| WOP-302 | Add deterministic demo modes and guarded reset                                            | todo   |
+| WOP-302 | Add deterministic demo modes and guarded reset. GitHub #23                                | done   |
 | WOP-303 | Complete OpenAPI contract, fresh-clone setup, security policy, and deployment runbook     | todo   |
 | WOP-304 | Add Playwright desktop, keyboard, privacy, and mobile walkthroughs                        | todo   |
 | WOP-305 | Capture evidence, deploy the public demo, and publish `v0.1.0`                            | todo   |
