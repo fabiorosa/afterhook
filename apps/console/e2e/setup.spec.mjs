@@ -29,6 +29,10 @@ test.beforeAll(async ({ request: api }) => {
     connection: {
       host: parsedRedisUrl.hostname,
       port: Number(parsedRedisUrl.port || "6379"),
+      db: Number(parsedRedisUrl.pathname.slice(1) || "0"),
+      ...(parsedRedisUrl.username === ""
+        ? {}
+        : { username: parsedRedisUrl.username }),
       ...(parsedRedisUrl.password === ""
         ? {}
         : { password: parsedRedisUrl.password }),
