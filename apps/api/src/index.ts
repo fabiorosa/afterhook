@@ -25,7 +25,14 @@ const cipher = createSecretCipher(encryptionKey);
 const repository = createPostgresRepository(databaseUrl, cipher);
 const redis = createRedisConnection(redisUrl);
 const eventQueue = createEventQueue(redis);
-const app = buildServer(repository, { eventQueue });
+const app = buildServer(repository, {
+  eventQueue,
+  demo: {
+    enabled: process.env.AFTERHOOK_DEMO_ENABLED === "true",
+    destinationOrigin:
+      process.env.AFTERHOOK_DEMO_DESTINATION_ORIGIN ?? "http://127.0.0.1:3201",
+  },
+});
 
 app.addHook("onClose", async () => {
   await eventQueue.close();

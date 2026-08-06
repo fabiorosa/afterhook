@@ -86,6 +86,8 @@ function createRepository(
     findEventDetail: (id) =>
       Promise.resolve(id === eventId ? eventDetail : null),
     requestManualRetry: () => Promise.resolve({ outcome: "not_allowed" }),
+    createDemoEvent: () => Promise.resolve({ eventId, duplicate: false }),
+    resetDemo: () => Promise.resolve({ deletedEvents: 0 }),
   };
 }
 
@@ -112,6 +114,73 @@ describe("setup HTTP contract", () => {
     expect(listed.statusCode).toBe(200);
     expect(listed.body).not.toContain("ahsec_only_returned_once");
     expect(listed.body).not.toContain("secret_encrypted");
+  });
+
+  it("hides demo mutations unless the environment explicitly enables them", async () => {
+    const app = buildServer(createRepository());
+    const status = await app.inject({ method: "GET", url: "/v1/demo" });
+    const launch = await app.inject({
+      method: "POST",
+      url: "/v1/demo/events",
+      payload: { scenario: "success" },
+    });
+    const reset = await app.inject({
+      method: "POST",
+      url: "/v1/demo/reset",
+      payload: {},
+    });
+    expect(status.json()).toEqual({ enabled: false });
+    expect(launch.statusCode).toBe(404);
+    expect(reset.statusCode).toBe(404);
+  });
+
+  it("queues strict demo scenarios and exposes only safe identity", async () => {
+    const queued: string[] = [];
+    const app = buildServer(createRepository(), {
+      demo: { enabled: true, destinationOrigin: "http://127.0.0.1:3201" },
+      eventQueue: {
+        enqueue: (id) => {
+          queued.push(id);
+          return Promise.resolve();
+        },
+        enqueueRetry: () => Promise.resolve(),
+        enqueueManual: () => Promise.resolve(),
+        readWorkerHeartbeat: () => Promise.resolve(null),
+        close: () => Promise.resolve(),
+      },
+    });
+    const response = await app.inject({
+      method: "POST",
+      url: "/v1/demo/events",
+      payload: { scenario: "success" },
+    });
+    expect(response.statusCode).toBe(202);
+    expect(response.json()).toEqual({
+      accepted: true,
+      eventId,
+      scenario: "success",
+      duplicate: false,
+    });
+    expect(queued).toEqual([eventId]);
+    expect(response.body).not.toMatch(/secret|payload|destination/i);
+  });
+
+  it("accepts only an empty guarded demo reset request", async () => {
+    const app = buildServer(createRepository(), {
+      demo: { enabled: true, destinationOrigin: "http://127.0.0.1:3201" },
+    });
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/v1/demo/reset",
+      payload: { all: true },
+    });
+    const accepted = await app.inject({
+      method: "POST",
+      url: "/v1/demo/reset",
+      payload: {},
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(accepted.json()).toEqual({ reset: true, deletedEvents: 0 });
   });
 
   it("validates setup input and never reflects authorization", async () => {

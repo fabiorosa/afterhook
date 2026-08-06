@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createDemoEventInputSchema,
+  createDemoEventResponseSchema,
   createDestinationInputSchema,
   deliveryAttemptSchema,
   deliveryJobSchema,
@@ -12,6 +14,8 @@ import {
   ingestionReceiptSchema,
   manualRetryErrorSchema,
   manualRetryResponseSchema,
+  resetDemoInputSchema,
+  resetDemoResponseSchema,
   systemHealthSchema,
   workerHeartbeatSchema,
   webhookHeadersSchema,
@@ -19,6 +23,28 @@ import {
 } from "./index.js";
 
 describe("setup contracts", () => {
+  it("accepts only documented deterministic demo scenarios", () => {
+    expect(
+      createDemoEventInputSchema.parse({ scenario: "retryable-failure" }),
+    ).toEqual({ scenario: "retryable-failure" });
+    expect(
+      createDemoEventInputSchema.safeParse({ scenario: "terminal" }).success,
+    ).toBe(false);
+    expect(resetDemoInputSchema.safeParse({ confirm: true }).success).toBe(
+      false,
+    );
+    expect(
+      createDemoEventResponseSchema.parse({
+        accepted: true,
+        eventId: "75339b4d-bb60-43b6-93bd-30436cb6454a",
+        scenario: "success",
+        duplicate: false,
+      }),
+    ).toMatchObject({ scenario: "success" });
+    expect(
+      resetDemoResponseSchema.parse({ reset: true, deletedEvents: 3 }),
+    ).toEqual({ reset: true, deletedEvents: 3 });
+  });
   it("accepts a safe destination input", () => {
     expect(
       createDestinationInputSchema.parse({

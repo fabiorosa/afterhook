@@ -237,6 +237,32 @@ export const manualRetryErrorSchema = z.object({
   message: z.string(),
 });
 
+export const demoScenarioSchema = z.enum([
+  "success",
+  "timeout",
+  "retryable-failure",
+]);
+
+export const demoStatusSchema = z.object({ enabled: z.boolean() });
+
+export const createDemoEventInputSchema = z
+  .object({ scenario: demoScenarioSchema })
+  .strict();
+
+export const createDemoEventResponseSchema = z.object({
+  accepted: z.literal(true),
+  eventId: z.uuid(),
+  scenario: demoScenarioSchema,
+  duplicate: z.boolean(),
+});
+
+export const resetDemoInputSchema = z.object({}).strict();
+
+export const resetDemoResponseSchema = z.object({
+  reset: z.literal(true),
+  deletedEvents: z.number().int().nonnegative(),
+});
+
 export type CreateEndpointInput = z.infer<typeof createEndpointInputSchema>;
 export type CreateDestinationInput = z.infer<
   typeof createDestinationInputSchema
@@ -258,3 +284,7 @@ export type EventDetail = z.infer<typeof eventDetailSchema>;
 export type EventFilter = z.infer<typeof eventFilterSchema>;
 export type DeliveryAttempt = z.infer<typeof deliveryAttemptSchema>;
 export type ManualRetryResponse = z.infer<typeof manualRetryResponseSchema>;
+export type DemoScenario = z.infer<typeof demoScenarioSchema>;
+export type CreateDemoEventResponse = z.infer<
+  typeof createDemoEventResponseSchema
+>;

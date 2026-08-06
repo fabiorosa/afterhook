@@ -1,4 +1,6 @@
 import {
+  createDemoEventInputSchema,
+  createDemoEventResponseSchema,
   createDestinationInputSchema,
   createEndpointInputSchema,
   createdEndpointResponseSchema,
@@ -14,6 +16,9 @@ import {
   manualRetryErrorSchema,
   manualRetryInputSchema,
   manualRetryResponseSchema,
+  demoStatusSchema,
+  resetDemoInputSchema,
+  resetDemoResponseSchema,
   systemHealthSchema,
   webhookHeadersSchema,
   webhookPayloadSchema,
@@ -49,6 +54,7 @@ declare module "fastify" {
 type ServerOptions = Readonly<{
   now?: () => Date;
   eventQueue?: EventQueue;
+  demo?: Readonly<{ enabled: boolean; destinationOrigin: string }>;
 }>;
 
 function ingestionError(
@@ -109,6 +115,10 @@ export function buildServer(
     enqueueManual: () => Promise.resolve(),
     readWorkerHeartbeat: () => Promise.resolve(null),
     close: () => Promise.resolve(),
+  };
+  const demo = options.demo ?? {
+    enabled: false,
+    destinationOrigin: "http://127.0.0.1:3201",
   };
 
   app.removeContentTypeParser("application/json");
@@ -184,6 +194,52 @@ export function buildServer(
   app.get("/v1/destinations", async () =>
     destinationListSchema.parse(await repository.listDestinations()),
   );
+  app.get("/v1/demo", () => demoStatusSchema.parse({ enabled: demo.enabled }));
+  app.post("/v1/demo/events", async (request, reply) => {
+    if (!demo.enabled) {
+      return reply.code(404).send({
+        error: "DEMO_NOT_FOUND",
+        message: "Demo controls are not available.",
+      });
+    }
+    const input = parseOrReply(createDemoEventInputSchema, request.body, reply);
+    if (input === undefined) return;
+    const created = await repository.createDemoEvent({
+      scenario: input.scenario,
+      destinationOrigin: demo.destinationOrigin,
+      receivedAt: now(),
+    });
+    try {
+      await eventQueue.enqueue(created.eventId);
+    } catch {
+      return reply.code(503).send({
+        error: "QUEUE_UNAVAILABLE",
+        message: "The demo event was stored, but queue handoff is unavailable.",
+      });
+    }
+    return reply.code(created.duplicate ? 200 : 202).send(
+      createDemoEventResponseSchema.parse({
+        accepted: true,
+        eventId: created.eventId,
+        scenario: input.scenario,
+        duplicate: created.duplicate,
+      }),
+    );
+  });
+  app.post("/v1/demo/reset", async (request, reply) => {
+    if (!demo.enabled) {
+      return reply.code(404).send({
+        error: "DEMO_NOT_FOUND",
+        message: "Demo controls are not available.",
+      });
+    }
+    const input = parseOrReply(resetDemoInputSchema, request.body, reply);
+    if (input === undefined) return;
+    return resetDemoResponseSchema.parse({
+      reset: true,
+      ...(await repository.resetDemo()),
+    });
+  });
   app.get("/v1/events", async (request, reply) => {
     const filters = parseOrReply(eventFilterSchema, request.query, reply);
     if (filters === undefined) return;
