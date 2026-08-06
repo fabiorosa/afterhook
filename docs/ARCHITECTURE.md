@@ -70,6 +70,12 @@ Reuse with another digest returns a safe conflict.
 Owns queue scheduling, attempt allocation, retry policy, leases, and transition
 rules. Queue messages contain identifiers, not authoritative payload state.
 
+WOP-201 adds an idempotent BullMQ handoff after PostgreSQL persistence. Each
+waiting job contains only the stable event UUID and uses that UUID as its job
+identity. A queue outage returns a safe temporary response while retaining the
+event, so the sender can repeat the same idempotency key. The worker publishes
+an expiring Redis heartbeat but does not consume delivery jobs until WOP-202.
+
 ### Delivery
 
 Owns the bounded HTTP call, destination authentication, response
@@ -102,6 +108,8 @@ without introducing router state before the console needs it.
 - PostgreSQL is authoritative for event and attempt state.
 - Redis may be deleted and rebuilt without losing event history.
 - Queue completion alone never marks an event delivered.
+- Redis loss cannot erase the persisted `RECEIVED` event. Repeating its
+  idempotency key recreates the same queue handoff without another event.
 - A destination response and the committed attempt transition determine the
   visible outcome.
 - Attempt records are append-only after completion.

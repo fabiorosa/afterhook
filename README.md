@@ -8,7 +8,7 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-104 is complete. A local operator can create and list secret-safe endpoints
+WOP-201 is complete. A local operator can create and list secret-safe endpoints
 and destinations, then send a bounded JSON object signed with the endpoint
 secret. The API verifies the timestamp and exact raw body, rejects replayed or
 altered requests, and atomically persists one authoritative event with its
@@ -16,6 +16,9 @@ initial activity. Equivalent retries return the stable event ID. Reusing the
 same key with a different payload returns a safe conflict. The console now
 lists received events and opens a redacted detail with the chronological
 activity that proves receipt without implying destination delivery.
+Persisted events cross an idempotent BullMQ boundary as identifier-only jobs.
+The worker publishes an expiring Redis heartbeat, and `/health` exposes only
+safe worker availability and the last observed timestamp.
 
 ## Local development
 
@@ -23,7 +26,7 @@ AfterHook requires Node.js 22 or later and npm.
 
 ```bash
 npm ci
-docker compose up -d postgres
+docker compose up -d postgres redis
 ```
 
 Copy `.env.example` to `.env` for reference, then set its values in the shell
@@ -33,15 +36,19 @@ itself.
 ```powershell
 $env:DATABASE_URL = "postgres://afterhook:afterhook@127.0.0.1:54329/afterhook"
 $env:TEST_DATABASE_URL = $env:DATABASE_URL
+$env:REDIS_URL = "redis://127.0.0.1:56379/0"
+$env:TEST_REDIS_URL = "redis://127.0.0.1:56379/15"
 $env:SECRET_ENCRYPTION_KEY = node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 npm --workspace @afterhook/api run db:migrate
+npm run build
 npm run quality
 ```
 
-In separate terminals with the same `DATABASE_URL` and
-`SECRET_ENCRYPTION_KEY`, start the API and console:
+In separate terminals with the same `DATABASE_URL`, `REDIS_URL`, and
+`SECRET_ENCRYPTION_KEY`, start the worker, API, and console:
 
 ```powershell
+npm --workspace @afterhook/worker run start
 node apps/api/dist/index.js
 npm --workspace @afterhook/console run dev
 ```
@@ -49,7 +56,7 @@ npm --workspace @afterhook/console run dev
 Open `http://127.0.0.1:5173`. The quality command runs formatting, lint,
 strict TypeScript, unit tests, a fresh PostgreSQL migration and integration
 tests, a Chromium setup journey, and production builds. It requires the local
-PostgreSQL container to be running.
+PostgreSQL and Redis containers to be running.
 
 ## Signed ingestion contract
 

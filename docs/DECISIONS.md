@@ -118,3 +118,17 @@ The console uses small hash routes for Events, event detail, and Setup. This
 makes inspection views directly addressable and keyboard-native while avoiding
 a routing dependency before nested navigation or server rendering requires
 one.
+
+## ADR-011: Idempotent identifier-only queue handoff
+
+**Status:** accepted.
+
+WOP-201 persists an event before adding a BullMQ job whose complete data is the
+stable event UUID. The UUID is also the BullMQ job ID, so an equivalent request
+cannot create a second waiting job. PostgreSQL remains authoritative and the
+event stays `RECEIVED` until a later worker slice owns a real transition.
+
+Queue failure returns a safe temporary error after persistence. Retrying the
+same idempotency key repeats only the idempotent queue handoff. The worker
+heartbeat is an expiring Redis coordination value, while the public health
+projection omits worker identity and Redis details.
