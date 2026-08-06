@@ -267,3 +267,17 @@ MVP. Exact authenticated JSON is stored only in an AES-256-GCM envelope for the
 worker; public projections continue to use the separately redacted copy.
 PostgreSQL prevents updates to completed attempts, and duplicate queue delivery
 cannot claim another attempt. Retry decisions remain outside this boundary.
+
+## WOP-204 retry boundary
+
+PostgreSQL remains authoritative for automatic recovery through the event
+status and `next_attempt_at`. BullMQ receives one identifier-only delayed job
+per attempt, but a worker reconciler periodically restores every persisted
+schedule. Redis loss therefore delays coordination without erasing retry intent.
+
+Timeouts, connection failures, HTTP 408, 425, 429, and 5xx responses are
+retryable. Other non-success HTTP responses are terminal. The worker permits
+three automatic attempts, applies exponential delay from one second with 20
+percent bounded jitter, caps delays and `Retry-After` at 30 seconds, and moves
+an exhausted retryable event to `DEAD_LETTER`. Retry and dead-letter activities
+contain only safe classification, timing, attempt number, and HTTP status.

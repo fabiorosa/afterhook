@@ -445,16 +445,20 @@ button:disabled {
   height: 7px;
   width: 7px;
 }
-.status-failed {
+.status-failed,
+.status-dead_letter {
   color: #e5b5ae;
 }
-.status-failed::before {
+.status-failed::before,
+.status-dead_letter::before {
   background: #c8786d;
 }
-.status-processing {
+.status-processing,
+.status-queued {
   color: #ddd3a7;
 }
-.status-processing::before {
+.status-processing::before,
+.status-queued::before {
   background: #baa85f;
 }
 .detail-header {

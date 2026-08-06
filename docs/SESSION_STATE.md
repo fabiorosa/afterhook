@@ -1,6 +1,6 @@
 # Session state
 
-Updated: 2026-08-05.
+Updated: 2026-08-06.
 
 ## Completed and validated
 
@@ -53,16 +53,24 @@ Updated: 2026-08-05.
   Chromium scenarios.
 - Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
   redaction, lint, typecheck, migration, build, and browser gates pass.
+- WOP-203 was merged through PR #16. Main Quality run `31067599325` passed.
+- WOP-204 classifies transient failures, persists `next_attempt_at`, schedules
+  at most three automatic attempts, and records dead-letter exhaustion.
+- The worker reconciles PostgreSQL retry schedules into idempotent BullMQ jobs
+  on startup and every five seconds, so Redis remains coordination only.
+- Exponential backoff starts at one second with bounded 20 percent jitter.
+  Calculated delay and safe `Retry-After` handling are capped at 30 seconds.
+- Local Quality passes with 40 unit and HTTP tests, 18 integrations, and 8
+  Chromium scenarios for WOP-204.
 
 ## In progress
 
-WOP-203 is on `agent/delivery-attempts` in draft PR #16.
+WOP-204 is published as draft PR #18 from `agent/bounded-retries`.
 
 ## Pending work
 
-1. Review and merge WOP-203 after terminal GitHub checks.
-2. Open WOP-204 separately for retry classification, bounded automatic
-   backoff, and dead-letter state.
+1. Review and merge WOP-204 after terminal GitHub checks.
+2. Open WOP-205 separately for safe manual retry with concurrency protection.
 
 ## Decisions
 
@@ -81,6 +89,8 @@ WOP-203 is on `agent/delivery-attempts` in draft PR #16.
   network I/O and complete it after the delivery result.
 - WOP-203 records one terminal attempt and never schedules a retry. WOP-204
   owns classification, backoff, and dead-letter transitions.
+- WOP-204 permits exactly three automatic attempts and leaves manual recovery
+  to WOP-205.
 
 ## Dead ends
 
@@ -92,11 +102,11 @@ WOP-203 is on `agent/delivery-attempts` in draft PR #16.
 
 ## Open questions
 
-None for WOP-203.
+None for WOP-204.
 
 ## Next step
 
-Review WOP-203 as one bounded execution slice. Do not begin WOP-204 before its
+Review WOP-204 as one bounded recovery slice. Do not begin WOP-205 before its
 merge gate passes.
 
 ## Pending validation
@@ -106,7 +116,7 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-203 only after terminal GitHub checks. Then open WOP-204 as
-a separate issue and branch for retry classification and bounded recovery. Do
-not add manual retry, accounts, multi-tenancy, or deploy to WOP-203.
+Review and merge WOP-204 only after terminal GitHub checks. Then open WOP-205 as
+a separate issue and branch for safe manual retry. Do not add accounts,
+multi-tenancy, deployment, or release work to WOP-204.
 ```

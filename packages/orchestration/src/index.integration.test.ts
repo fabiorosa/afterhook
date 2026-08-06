@@ -57,6 +57,25 @@ describe("BullMQ event handoff", () => {
     expect(waiting[0]?.data).toEqual({ eventId });
   });
 
+  it("stores one delayed identifier-only job per retry attempt", async () => {
+    const producer = createEventQueue(connection());
+    queues.push(producer);
+    const inspector = new Queue(deliveryQueueName, {
+      connection: connection(),
+    });
+    queues.push(inspector);
+    const eventId = "75339b4d-bb60-43b6-93bd-30436cb6454a";
+
+    await producer.enqueueRetry(eventId, 2, 2_000);
+    await producer.enqueueRetry(eventId, 2, 2_000);
+
+    const delayed = await inspector.getJobs(["delayed"]);
+    expect(delayed).toHaveLength(1);
+    expect(delayed[0]?.id).toBe(`${eventId}:attempt:2`);
+    expect(delayed[0]?.data).toEqual({ eventId });
+    expect(delayed[0]?.delay).toBe(2_000);
+  });
+
   it("renews a bounded heartbeat and lets it expire after shutdown", async () => {
     const redis = connection();
     const heartbeat = createWorkerHeartbeat(redis, {

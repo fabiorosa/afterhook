@@ -13,9 +13,14 @@ if (databaseUrl === undefined) {
 
 const client = postgres(databaseUrl);
 const cipher = createSecretCipher(randomBytes(32).toString("base64"));
-const attempts = createAttemptRepository(databaseUrl, cipher);
+let currentTime = new Date("2026-08-05T20:01:00.000Z");
+const attempts = createAttemptRepository(databaseUrl, cipher, {
+  now: () => currentTime,
+  random: () => 0.5,
+});
 
 beforeEach(async () => {
+  currentTime = new Date("2026-08-05T20:01:00.000Z");
   await client.unsafe(
     'TRUNCATE TABLE "activity_events", "delivery_attempts", "events", "destinations", "endpoints"',
   );
@@ -88,14 +93,14 @@ describe("delivery attempt repository", () => {
         responseStatus: 204,
         durationMilliseconds: 18,
       }),
-    ).resolves.toBe(true);
+    ).resolves.toEqual({ outcome: "complete" });
     await expect(
       attempts.complete(claimed.attemptId, {
         outcome: "succeeded",
         responseStatus: 204,
         durationMilliseconds: 19,
       }),
-    ).resolves.toBe(false);
+    ).resolves.toBeNull();
 
     const [stored] = await client<
       {
@@ -137,14 +142,14 @@ describe("delivery attempt repository", () => {
     ).rejects.toThrow(/append-only/);
   });
 
-  it("records a safe terminal failure without scheduling a retry", async () => {
+  it("records a safe terminal HTTP failure without scheduling a retry", async () => {
     const event = await persistDeliverableEvent();
     const claimed = await attempts.claim(event.eventId);
     if (claimed === null) throw new Error("Attempt was not claimed.");
 
     await attempts.complete(claimed.attemptId, {
-      outcome: "network_failure",
-      responseStatus: null,
+      outcome: "http_failure",
+      responseStatus: 400,
       durationMilliseconds: 7,
     });
 
@@ -168,8 +173,93 @@ describe("delivery attempt repository", () => {
     expect(stored).toEqual({
       event_status: "FAILED",
       attempt_status: "TERMINAL_FAILURE",
-      error_code: "NETWORK_FAILURE",
+      error_code: "HTTP_FAILURE",
       safe_error_message: "The destination did not accept the delivery.",
     });
+  });
+
+  it("schedules two bounded retries then dead-letters the third failure", async () => {
+    const event = await persistDeliverableEvent();
+
+    for (const attemptNumber of [1, 2, 3]) {
+      const claimed = await attempts.claim(event.eventId);
+      expect(claimed?.attemptNumber).toBe(attemptNumber);
+      if (claimed === null) throw new Error("Attempt was not claimed.");
+
+      const completed = await attempts.complete(claimed.attemptId, {
+        outcome: "http_failure",
+        responseStatus: 503,
+        durationMilliseconds: attemptNumber * 10,
+        retryAfterMilliseconds: attemptNumber === 1 ? 1_500 : null,
+      });
+
+      if (attemptNumber < 3) {
+        expect(completed).toEqual({
+          outcome: "retry_scheduled",
+          schedule: {
+            eventId: event.eventId,
+            attemptNumber: attemptNumber + 1,
+            scheduledAt: new Date(
+              currentTime.getTime() +
+                1 +
+                (attemptNumber === 1
+                  ? 1_500
+                  : 1_000 * 2 ** (attemptNumber - 1)),
+            ),
+          },
+        });
+        await expect(attempts.listRetrySchedules()).resolves.toEqual([
+          completed?.outcome === "retry_scheduled"
+            ? completed.schedule
+            : undefined,
+        ]);
+        await expect(attempts.claim(event.eventId)).resolves.toBeNull();
+        if (completed?.outcome === "retry_scheduled") {
+          currentTime = completed.schedule.scheduledAt;
+        }
+      } else {
+        expect(completed).toEqual({ outcome: "complete" });
+      }
+    }
+
+    const [stored] = await client<
+      {
+        status: string;
+        attempt_count: number;
+        next_attempt_at: Date | null;
+      }[]
+    >`
+      SELECT
+        e.status,
+        e.next_attempt_at,
+        COUNT(a.id)::integer AS attempt_count
+      FROM events e
+      INNER JOIN delivery_attempts a ON a.event_id = e.id
+      WHERE e.id = ${event.eventId}
+      GROUP BY e.id
+    `;
+    const activityTypes = await client<{ type: string }[]>`
+      SELECT type
+      FROM activity_events
+      WHERE event_id = ${event.eventId}
+      ORDER BY created_at, id
+    `;
+    expect(stored).toMatchObject({
+      status: "DEAD_LETTER",
+      attempt_count: 3,
+      next_attempt_at: null,
+    });
+    expect(activityTypes.map(({ type }) => type)).toEqual([
+      "event.received",
+      "attempt.started",
+      "attempt.failed",
+      "retry.scheduled",
+      "attempt.started",
+      "attempt.failed",
+      "retry.scheduled",
+      "attempt.started",
+      "attempt.failed",
+      "event.dead_lettered",
+    ]);
   });
 });

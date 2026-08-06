@@ -344,6 +344,7 @@ describe("ingestion HTTP contract", () => {
               ? Promise.reject(new Error("redis contains private detail"))
               : Promise.resolve();
           },
+          enqueueRetry: () => Promise.resolve(),
           readWorkerHeartbeat: () => Promise.resolve(null),
           close: () => Promise.resolve(),
         },
@@ -440,6 +441,7 @@ describe("system health HTTP contract", () => {
     const app = buildServer(createRepository(), {
       eventQueue: {
         enqueue: () => Promise.resolve(),
+        enqueueRetry: () => Promise.resolve(),
         readWorkerHeartbeat: () =>
           Promise.resolve({
             workerId: "private-worker-host",
@@ -462,6 +464,7 @@ describe("system health HTTP contract", () => {
     const app = buildServer(createRepository(), {
       eventQueue: {
         enqueue: () => Promise.resolve(),
+        enqueueRetry: () => Promise.resolve(),
         readWorkerHeartbeat: () => Promise.reject(new Error("redis private")),
         close: () => Promise.resolve(),
       },

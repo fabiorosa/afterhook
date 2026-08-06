@@ -12,6 +12,10 @@ const encryptionVersion = "v1";
 const ivBytes = 12;
 export const maxWebhookBodyBytes = 256 * 1024;
 export const webhookTimestampToleranceSeconds = 5 * 60;
+export const maximumAutomaticAttempts = 3;
+export const retryBaseDelayMilliseconds = 1_000;
+export const retryMaximumDelayMilliseconds = 30_000;
+export const retryJitterRatio = 0.2;
 const sensitivePayloadKeys = new Set([
   "apikey",
   "authorization",
@@ -23,6 +27,46 @@ const sensitivePayloadKeys = new Set([
   "token",
   "accesstoken",
 ]);
+
+export type DeliveryFailureInput = Readonly<{
+  outcome: "http_failure" | "timed_out" | "network_failure";
+  responseStatus: number | null;
+}>;
+
+export type DeliveryFailureClassification = "retryable" | "terminal";
+
+export function classifyDeliveryFailure(
+  failure: DeliveryFailureInput,
+): DeliveryFailureClassification {
+  if (failure.outcome !== "http_failure") return "retryable";
+  const status = failure.responseStatus;
+  if (status === null) return "terminal";
+  return status === 408 || status === 425 || status === 429 || status >= 500
+    ? "retryable"
+    : "terminal";
+}
+
+export function calculateRetryDelayMilliseconds(
+  completedAttemptNumber: number,
+  randomValue = Math.random(),
+): number {
+  if (!Number.isInteger(completedAttemptNumber) || completedAttemptNumber < 1) {
+    throw new Error("Completed attempt number must be a positive integer.");
+  }
+  if (randomValue < 0 || randomValue > 1) {
+    throw new Error("Random value must be between zero and one.");
+  }
+
+  const exponential = Math.min(
+    retryBaseDelayMilliseconds * 2 ** (completedAttemptNumber - 1),
+    retryMaximumDelayMilliseconds,
+  );
+  const jitter = 1 - retryJitterRatio + randomValue * retryJitterRatio * 2;
+  return Math.min(
+    Math.round(exponential * jitter),
+    retryMaximumDelayMilliseconds,
+  );
+}
 
 export type RedactedPayloadValue =
   | null
