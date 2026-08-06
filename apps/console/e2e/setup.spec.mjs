@@ -304,7 +304,7 @@ test("shows dead-letter state after the automatic budget is exhausted", async ({
   await expect(page.getByText("Dead letter", { exact: true })).toBeVisible();
 });
 
-test("recovers a dead-letter event through one safe manual retry", async ({
+test("completes the operator walkthrough across desktop, keyboard, privacy, and mobile", async ({
   page,
   request: api,
 }) => {
@@ -321,7 +321,22 @@ test("recovers a dead-letter event through one safe manual retry", async ({
       timeout: 12_000,
     })
     .toBe("DEAD_LETTER");
-  await page.goto(`/#events/${created.event.eventId}`);
+  await page.goto("/#events");
+  const eventLink = page.locator(`a[href="#events/${created.event.eventId}"]`);
+  await eventLink.focus();
+  await expect(eventLink).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(`/#events/${created.event.eventId}`);
+  await expect(
+    page.getByRole("heading", { name: "What happened" }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(
+    "private-manual-recovery",
+  );
+  await expect(page.locator("body")).not.toContainText(
+    "destination-manual-recovery",
+  );
+  await expect(page.locator("body")).not.toContainText("ahsec_");
   const retryButton = page.getByRole("button", { name: "Retry delivery" });
   await retryButton.focus();
   await expect(retryButton).toBeFocused();
@@ -363,6 +378,15 @@ test("recovers a dead-letter event through one safe manual retry", async ({
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "What happened" }),
+  ).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(
+    "private-manual-recovery",
+  );
+  await expect(page.locator("body")).not.toContainText(
+    "destination-manual-recovery",
+  );
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
   );
