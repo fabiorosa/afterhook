@@ -128,6 +128,12 @@ real BullMQ worker and local Fastify destination, waits for PostgreSQL to report
 `DELIVERED`, and verifies the three-step timeline on desktop and at 390 px
 without exposing payload or authorization values.
 
+WOP-204 adds deterministic classification, jitter and `Retry-After` bounds;
+real PostgreSQL coverage for two scheduled retries, terminal failure, and
+dead-letter exhaustion; BullMQ coverage for idempotent delayed jobs; and worker
+reconciliation coverage for lost queue state. Chromium proves both recovery on
+the third attempt and dead-letter after three retryable failures.
+
 ## Static gates
 
 - TypeScript strict typecheck.

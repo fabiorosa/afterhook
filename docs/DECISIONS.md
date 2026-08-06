@@ -167,3 +167,18 @@ completed attempt. Duplicate BullMQ jobs become no-ops instead of executions.
 This slice records failures as terminal evidence but does not decide retry
 eligibility or enqueue another job. WOP-204 owns retry classification, bounded
 backoff, and dead-letter behavior.
+
+## ADR-014: PostgreSQL-authoritative bounded retries
+
+**Status:** accepted.
+
+WOP-204 persists `next_attempt_at` before BullMQ receives a delayed retry job.
+The worker reconciles persisted schedules on startup and every five seconds,
+using an idempotent job ID per event and attempt. This preserves PostgreSQL as
+the execution authority while Redis remains a replaceable coordination layer.
+
+The fixed MVP policy allows three automatic attempts. Timeout, network failure,
+HTTP 408, 425, 429, and 5xx are retryable; other non-success HTTP responses are
+terminal. Exponential backoff starts at one second, uses 20 percent bounded
+jitter, and caps both calculated delay and `Retry-After` at 30 seconds.
+Exhaustion produces `DEAD_LETTER`. Manual recovery remains WOP-205.
