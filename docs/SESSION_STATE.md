@@ -96,12 +96,13 @@ Updated: 2026-08-06.
 
 ## In progress
 
-WOP-302 is implemented on `agent/deterministic-demo` for GitHub issue #23.
+WOP-302 is published as draft PR #24 from `agent/deterministic-demo` for
+GitHub issue #23.
 
 ## Pending work
 
-1. Publish WOP-302 as a draft pull request after terminal local validation.
-2. Review and merge WOP-302 only after terminal GitHub checks.
+1. Review and merge WOP-302 only after terminal GitHub checks.
+2. Open WOP-303 separately after the WOP-302 merge gate.
 
 ## Decisions
 
