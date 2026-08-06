@@ -445,6 +445,18 @@ button:disabled {
   height: 7px;
   width: 7px;
 }
+.status-failed {
+  color: #e5b5ae;
+}
+.status-failed::before {
+  background: #c8786d;
+}
+.status-processing {
+  color: #ddd3a7;
+}
+.status-processing::before {
+  background: #baa85f;
+}
 .detail-header {
   border-bottom: 1px solid #29302a;
   padding: 44px 0 36px;
@@ -565,6 +577,9 @@ button:disabled {
   grid-template-columns: 12px minmax(0, 1fr);
   gap: 18px;
   position: relative;
+}
+.timeline li + li {
+  margin-top: 34px;
 }
 .timeline-marker {
   background: #a7c99a;

@@ -5,6 +5,11 @@
     "rootDir": "src",
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
   },
-  "references": [{ "path": "../../packages/orchestration/tsconfig.json" }],
+  "references": [
+    { "path": "../../packages/contracts/tsconfig.json" },
+    { "path": "../../packages/delivery/tsconfig.json" },
+    { "path": "../../packages/domain/tsconfig.json" },
+    { "path": "../../packages/orchestration/tsconfig.json" }
+  ],
   "include": ["src/**/*.ts"]
 }

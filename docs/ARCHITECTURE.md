@@ -253,3 +253,17 @@ The MVP must expose:
 
 OpenTelemetry export is deferred. Internal trace structure should allow it
 later without rewriting the domain.
+
+## WOP-203 execution boundary
+
+The worker now consumes identifier-only jobs. A PostgreSQL transaction locks a
+received event, inserts attempt 1 as `RUNNING`, appends `attempt.started`, and
+changes the event to `PROCESSING` before network I/O. The bounded delivery
+transport then runs, and a second transaction conditionally completes that one
+attempt together with the visible event state and safe activity.
+
+New events reference the newest enabled destination in the single-workspace
+MVP. Exact authenticated JSON is stored only in an AES-256-GCM envelope for the
+worker; public projections continue to use the separately redacted copy.
+PostgreSQL prevents updates to completed attempts, and duplicate queue delivery
+cannot claim another attempt. Retry decisions remain outside this boundary.

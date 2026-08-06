@@ -121,6 +121,13 @@ WOP-104 adds Chromium coverage for event list and redacted detail, received
 versus delivered language, loading, empty, error and retry states, keyboard row
 navigation, and a 390 px viewport without horizontal overflow.
 
+WOP-203 adds encrypted raw-payload storage, transactional attempt claim,
+conditional completion, append-only enforcement, duplicate claim rejection,
+and safe success and failure integration coverage. Its browser journey uses a
+real BullMQ worker and local Fastify destination, waits for PostgreSQL to report
+`DELIVERED`, and verifies the three-step timeline on desktop and at 390 px
+without exposing payload or authorization values.
+
 ## Static gates
 
 - TypeScript strict typecheck.

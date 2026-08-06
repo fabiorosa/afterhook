@@ -39,26 +39,38 @@ Updated: 2026-08-05.
   and timeouts plus response discarding are bounded.
 - Delivery results expose only outcome, HTTP status when present, and duration.
   Authorization, response bodies, socket errors, and addresses remain private.
+- WOP-202 was merged through PR #14. Main Quality run `31063106441` passed.
+- WOP-203 stores exact authenticated JSON only in an AES-256-GCM envelope and
+  associates new events with the newest enabled destination.
+- The worker transactionally creates one `RUNNING` attempt and changes the
+  event to `PROCESSING` before HTTP. It then conditionally commits one terminal
+  result and safe activity.
+- PostgreSQL rejects updates to completed attempts. Duplicate or stale queue
+  jobs cannot create another attempt.
+- Event list counts and detail timelines expose delivery start, success or
+  failure, response status when present, and duration without secret values.
+- Local Quality passes with 34 unit and HTTP tests, 16 integrations, and 6
+  Chromium scenarios.
 - Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
   redaction, lint, typecheck, migration, build, and browser gates pass.
 
 ## In progress
 
-WOP-202 is on `agent/bounded-delivery` for draft pull request review.
+WOP-203 is on `agent/delivery-attempts` in draft PR #16.
 
 ## Pending work
 
-1. Review and merge WOP-202 after terminal GitHub checks.
-2. Open WOP-203 separately to connect queued events to append-only attempts and
-   the tested delivery transport.
+1. Review and merge WOP-203 after terminal GitHub checks.
+2. Open WOP-204 separately for retry classification, bounded automatic
+   backoff, and dead-letter state.
 
 ## Decisions
 
 - PostgreSQL owns idempotency through a composite unique index.
 - Event and first activity commit in one transaction.
 - Equivalent duplicates do not append activity.
-- Raw payload storage, destination association, delivery, Redis, BullMQ,
-  retries, accounts, and deployment remain outside WOP-104.
+- Exact raw payload is encrypted only for internal delivery; public reads use
+  the redacted copy.
 - Event APIs return narrow Zod projections; malformed and missing IDs share one
   safe not-found response.
 - The console uses hash routes until navigation needs justify a router.
@@ -67,6 +79,8 @@ WOP-202 is on `agent/bounded-delivery` for draft pull request review.
   jobs or transition event state.
 - WOP-202 does not consume BullMQ jobs. WOP-203 must persist an attempt before
   network I/O and complete it after the delivery result.
+- WOP-203 records one terminal attempt and never schedules a retry. WOP-204
+  owns classification, backoff, and dead-letter transitions.
 
 ## Dead ends
 
@@ -78,11 +92,11 @@ WOP-202 is on `agent/bounded-delivery` for draft pull request review.
 
 ## Open questions
 
-None for WOP-202.
+None for WOP-203.
 
 ## Next step
 
-Review WOP-202 as one bounded transport slice. Do not begin WOP-203 before its
+Review WOP-203 as one bounded execution slice. Do not begin WOP-204 before its
 merge gate passes.
 
 ## Pending validation
@@ -92,7 +106,7 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-202 only after terminal GitHub checks. Then open WOP-203 as
-a separate issue and branch to persist attempts around queue consumption. Do
-not add retries, backoff, dead-letter behavior, accounts, or deploy to WOP-202.
+Review and merge WOP-203 only after terminal GitHub checks. Then open WOP-204 as
+a separate issue and branch for retry classification and bounded recovery. Do
+not add manual retry, accounts, multi-tenancy, or deploy to WOP-203.
 ```

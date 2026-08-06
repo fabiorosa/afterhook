@@ -14,23 +14,36 @@ import {
   fingerprintSecret,
   type SecretCipher,
 } from "@afterhook/domain";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
-import { activityEvents, destinations, endpoints, events } from "./schema.js";
+import {
+  activityEvents,
+  deliveryAttempts,
+  destinations,
+  endpoints,
+  events,
+} from "./schema.js";
 
 export type PersistEventInput = Readonly<{
   endpointId: string;
   idempotencyKey: string;
   payloadDigest: string;
   payloadRedacted: unknown;
+  rawPayload?: string;
   receivedAt: Date;
 }>;
 
 export type PersistEventOutcome =
   | Readonly<{ outcome: "created" | "existing"; eventId: string }>
   | Readonly<{ outcome: "conflict" }>;
+
+export class DestinationUnavailableError extends Error {
+  constructor() {
+    super("An enabled destination is required.");
+  }
+}
 
 export type SetupRepository = Readonly<{
   createDestination: (
@@ -99,6 +112,7 @@ function toEventListItem(row: {
   idempotencyKey: string;
   status: string;
   receivedAt: Date;
+  attemptCount: number;
 }): EventListItem {
   return {
     id: row.id,
@@ -110,7 +124,7 @@ function toEventListItem(row: {
     idempotencyKey: row.idempotencyKey,
     status: eventStatusSchema.parse(row.status),
     receivedAt: toIsoDate(row.receivedAt),
-    attemptCount: 0,
+    attemptCount: row.attemptCount,
   };
 }
 
@@ -181,13 +195,28 @@ export function createSetupRepository(
     },
     async persistEvent(input) {
       return database.transaction(async (transaction) => {
+        const [destination] = await transaction
+          .select({ id: destinations.id })
+          .from(destinations)
+          .where(eq(destinations.enabled, true))
+          .orderBy(desc(destinations.createdAt), desc(destinations.id))
+          .limit(1);
+
+        if (destination === undefined) {
+          throw new DestinationUnavailableError();
+        }
+
         const [created] = await transaction
           .insert(events)
           .values({
             endpointId: input.endpointId,
+            destinationId: destination.id,
             idempotencyKey: input.idempotencyKey,
             payloadDigest: input.payloadDigest,
             payloadRedacted: input.payloadRedacted,
+            payloadEncrypted: cipher.encrypt(
+              input.rawPayload ?? JSON.stringify(input.payloadRedacted),
+            ),
             receivedAt: input.receivedAt,
           })
           .onConflictDoNothing({
@@ -235,9 +264,12 @@ export function createSetupRepository(
           idempotencyKey: events.idempotencyKey,
           status: events.status,
           receivedAt: events.receivedAt,
+          attemptCount: count(deliveryAttempts.id),
         })
         .from(events)
         .innerJoin(endpoints, eq(events.endpointId, endpoints.id))
+        .leftJoin(deliveryAttempts, eq(events.id, deliveryAttempts.eventId))
+        .groupBy(events.id, endpoints.id)
         .orderBy(desc(events.receivedAt), desc(events.id));
 
       return rows.map(toEventListItem);
@@ -254,10 +286,13 @@ export function createSetupRepository(
           receivedAt: events.receivedAt,
           payloadDigest: events.payloadDigest,
           payloadRedacted: events.payloadRedacted,
+          attemptCount: count(deliveryAttempts.id),
         })
         .from(events)
         .innerJoin(endpoints, eq(events.endpointId, endpoints.id))
+        .leftJoin(deliveryAttempts, eq(events.id, deliveryAttempts.eventId))
         .where(eq(events.id, eventId))
+        .groupBy(events.id, endpoints.id)
         .limit(1);
 
       if (row === undefined) {

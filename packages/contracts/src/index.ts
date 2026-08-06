@@ -140,6 +140,7 @@ export const ingestionErrorSchema = z.object({
     "PAYLOAD_TOO_LARGE",
     "IDEMPOTENCY_CONFLICT",
     "QUEUE_UNAVAILABLE",
+    "DESTINATION_UNAVAILABLE",
     "INTERNAL_ERROR",
   ]),
   message: z.string(),

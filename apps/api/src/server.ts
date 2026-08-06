@@ -25,7 +25,10 @@ import type { EventQueue } from "@afterhook/orchestration";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 
-import type { SetupRepository } from "./persistence/repository.js";
+import {
+  DestinationUnavailableError,
+  type SetupRepository,
+} from "./persistence/repository.js";
 
 const endpointListSchema = z.array(endpointResponseSchema);
 const destinationListSchema = z.array(destinationResponseSchema);
@@ -52,6 +55,7 @@ function ingestionError(
     | "PAYLOAD_TOO_LARGE"
     | "IDEMPOTENCY_CONFLICT"
     | "QUEUE_UNAVAILABLE"
+    | "DESTINATION_UNAVAILABLE"
     | "INTERNAL_ERROR",
   message: string,
 ) {
@@ -297,13 +301,29 @@ export function buildServer(
     }
 
     const payloadDigest = digestWebhookPayload(rawBody);
-    const persisted = await repository.persistEvent({
-      endpointId: endpoint.id,
-      idempotencyKey: headers.data.idempotencyKey,
-      payloadDigest,
-      payloadRedacted: redactWebhookPayload(payload.data),
-      receivedAt: now(),
-    });
+    let persisted;
+    try {
+      persisted = await repository.persistEvent({
+        endpointId: endpoint.id,
+        idempotencyKey: headers.data.idempotencyKey,
+        payloadDigest,
+        payloadRedacted: redactWebhookPayload(payload.data),
+        rawPayload: rawBody.toString("utf8"),
+        receivedAt: now(),
+      });
+    } catch (error) {
+      if (error instanceof DestinationUnavailableError) {
+        return reply
+          .code(503)
+          .send(
+            ingestionError(
+              "DESTINATION_UNAVAILABLE",
+              "Create an enabled destination before accepting events.",
+            ),
+          );
+      }
+      throw error;
+    }
 
     if (persisted.outcome === "conflict") {
       return reply
