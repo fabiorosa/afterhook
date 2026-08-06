@@ -105,11 +105,12 @@ Updated: 2026-08-06.
 
 ## In progress
 
-WOP-304 is prepared from `agent/operator-walkthroughs` for GitHub issue #27.
+WOP-304 is published as draft PR #28 from `agent/operator-walkthroughs` for
+GitHub issue #27.
 
 ## Pending work
 
-1. Publish and review WOP-304 after terminal GitHub checks.
+1. Review and merge WOP-304 after terminal GitHub checks.
 2. Do not begin WOP-305 deployment, evidence capture, or release work.
 
 ## Decisions
@@ -156,7 +157,8 @@ None for WOP-304.
 
 ## Next step
 
-Open and review the WOP-304 draft PR after terminal quality checks.
+Review WOP-304 after terminal GitHub checks. Do not begin WOP-305 before its
+merge gate passes.
 
 ## Pending validation
 
