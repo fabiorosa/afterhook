@@ -6,7 +6,13 @@ type EventListItem = Readonly<{
   id: string;
   endpoint: Readonly<{ id: string; name: string; slug: string }>;
   idempotencyKey: string;
-  status: "RECEIVED";
+  status:
+    | "RECEIVED"
+    | "QUEUED"
+    | "PROCESSING"
+    | "DELIVERED"
+    | "FAILED"
+    | "DEAD_LETTER";
   receivedAt: string;
   attemptCount: number;
 }>;
@@ -29,6 +35,45 @@ function formatDate(value: string): string {
     timeStyle: "medium",
     timeZone: "UTC",
   }).format(new Date(value));
+}
+
+const statusLabels: Record<EventListItem["status"], string> = {
+  RECEIVED: "Received",
+  QUEUED: "Queued",
+  PROCESSING: "Processing",
+  DELIVERED: "Delivered",
+  FAILED: "Failed",
+  DEAD_LETTER: "Dead letter",
+};
+
+function activityContent(activity: EventDetail["activities"][number]) {
+  const duration = activity.metadata.durationMilliseconds;
+  const responseStatus = activity.metadata.responseStatus;
+
+  if (activity.type === "attempt.started") {
+    return {
+      title: "Delivery started",
+      description:
+        "Attempt 1 was committed before the destination request began.",
+    };
+  }
+  if (activity.type === "attempt.succeeded") {
+    return {
+      title: "Destination accepted delivery",
+      description: `The destination responded${typeof responseStatus === "number" ? ` with HTTP ${String(responseStatus)}` : " successfully"}${typeof duration === "number" ? ` in ${String(duration)} ms` : ""}.`,
+    };
+  }
+  if (activity.type === "attempt.failed") {
+    return {
+      title: "Delivery failed",
+      description: `The attempt ended safely${typeof responseStatus === "number" ? ` with HTTP ${String(responseStatus)}` : " without an accepted response"}${typeof duration === "number" ? ` after ${String(duration)} ms` : ""}. No retry was scheduled by this slice.`,
+    };
+  }
+  return {
+    title: "Webhook received",
+    description:
+      "Signature accepted and event committed to PostgreSQL before queue handoff.",
+  };
 }
 
 function EventsLoading({ detail = false }: Readonly<{ detail?: boolean }>) {
@@ -129,7 +174,11 @@ function EventList() {
               <time dateTime={event.receivedAt}>
                 {formatDate(event.receivedAt)}
               </time>
-              <span className="status-label">Received</span>
+              <span
+                className={`status-label status-${event.status.toLowerCase()}`}
+              >
+                {statusLabels[event.status]}
+              </span>
             </a>
           ))}
         </section>
@@ -188,7 +237,9 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
             <p className="eyebrow">EVENT</p>
             <h1 id="event-title">{event.id.slice(0, 8)}</h1>
           </div>
-          <span className="status-label">Received</span>
+          <span className={`status-label status-${event.status.toLowerCase()}`}>
+            {statusLabels[event.status]}
+          </span>
         </div>
         <p className="event-identity">{event.id}</p>
       </section>
@@ -227,21 +278,21 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
           <p className="eyebrow">TIMELINE</p>
           <h2 id="timeline-title">What happened</h2>
           <ol>
-            {event.activities.map((activity) => (
-              <li key={activity.id}>
-                <span className="timeline-marker" aria-hidden="true" />
-                <div>
-                  <h3>Webhook received</h3>
-                  <time dateTime={activity.createdAt}>
-                    {formatDate(activity.createdAt)}
-                  </time>
-                  <p>
-                    Signature accepted and event committed to PostgreSQL. No
-                    destination delivery has started.
-                  </p>
-                </div>
-              </li>
-            ))}
+            {event.activities.map((activity) => {
+              const content = activityContent(activity);
+              return (
+                <li key={activity.id}>
+                  <span className="timeline-marker" aria-hidden="true" />
+                  <div>
+                    <h3>{content.title}</h3>
+                    <time dateTime={activity.createdAt}>
+                      {formatDate(activity.createdAt)}
+                    </time>
+                    <p>{content.description}</p>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         </section>
       </div>

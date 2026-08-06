@@ -11,6 +11,11 @@ export default defineConfig({
   use: { baseURL: "http://127.0.0.1:5273" },
   webServer: [
     {
+      command: "node apps/destination/dist/index.js",
+      port: 3201,
+      env: { PORT: "3201" },
+    },
+    {
       command: "node apps/api/dist/index.js",
       port: 3101,
       env: {
