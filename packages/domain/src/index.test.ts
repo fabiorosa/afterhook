@@ -2,6 +2,8 @@ import { randomBytes } from "node:crypto";
 import { describe, expect, it } from "vitest";
 
 import {
+  calculateRetryDelayMilliseconds,
+  classifyDeliveryFailure,
   createSecretCipher,
   createSigningSecret,
   createWebhookSignature,
@@ -143,5 +145,45 @@ describe("signed ingestion boundary", () => {
       },
       items: [{ api_key: "[REDACTED]", access_token: "[REDACTED]" }],
     });
+  });
+});
+
+describe("automatic retry policy", () => {
+  it("classifies transient transport and documented HTTP failures", () => {
+    expect(
+      classifyDeliveryFailure({ outcome: "timed_out", responseStatus: null }),
+    ).toBe("retryable");
+    expect(
+      classifyDeliveryFailure({
+        outcome: "network_failure",
+        responseStatus: null,
+      }),
+    ).toBe("retryable");
+    for (const responseStatus of [408, 425, 429, 500, 503]) {
+      expect(
+        classifyDeliveryFailure({ outcome: "http_failure", responseStatus }),
+      ).toBe("retryable");
+    }
+  });
+
+  it("classifies other non-success HTTP outcomes as terminal", () => {
+    for (const responseStatus of [300, 400, 401, 404, 422]) {
+      expect(
+        classifyDeliveryFailure({ outcome: "http_failure", responseStatus }),
+      ).toBe("terminal");
+    }
+  });
+
+  it("calculates deterministic bounded exponential delays with jitter", () => {
+    expect(calculateRetryDelayMilliseconds(1, 0)).toBe(800);
+    expect(calculateRetryDelayMilliseconds(1, 0.5)).toBe(1_000);
+    expect(calculateRetryDelayMilliseconds(2, 1)).toBe(2_400);
+    expect(calculateRetryDelayMilliseconds(20, 1)).toBe(30_000);
+    expect(() => calculateRetryDelayMilliseconds(0, 0.5)).toThrow(
+      /positive integer/,
+    );
+    expect(() => calculateRetryDelayMilliseconds(1, 2)).toThrow(
+      /between zero and one/,
+    );
   });
 });
