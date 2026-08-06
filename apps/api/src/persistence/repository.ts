@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import {
   eventStatusSchema,
@@ -9,6 +9,7 @@ import {
   type EventDetail,
   type EventFilter,
   type EventListItem,
+  type DemoScenario,
 } from "@afterhook/contracts";
 import {
   createEndpointSlug,
@@ -18,7 +19,7 @@ import {
   manualRetryCooldownMilliseconds,
   type SecretCipher,
 } from "@afterhook/domain";
-import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max, sql } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -76,6 +77,12 @@ export type SetupRepository = Readonly<{
     eventId: string,
     requestedAt: Date,
   ) => Promise<ManualRetryOutcome>;
+  createDemoEvent: (input: {
+    scenario: DemoScenario;
+    destinationOrigin: string;
+    receivedAt: Date;
+  }) => Promise<{ eventId: string; duplicate: boolean }>;
+  resetDemo: () => Promise<{ deletedEvents: number }>;
 }>;
 
 export type IngestionEndpoint = Readonly<{
@@ -151,6 +158,112 @@ export function createSetupRepository(
   cipher: SecretCipher,
 ): SetupRepository {
   return {
+    async createDemoEvent(input) {
+      return database.transaction(async (transaction) => {
+        const demoKey = `wop-302-${input.scenario}`;
+        const signingSecret = createSigningSecret();
+        const [endpoint] = await transaction
+          .insert(endpoints)
+          .values({
+            name: `Demo: ${input.scenario}`,
+            slug: `demo-${input.scenario}`,
+            secretEncrypted: cipher.encrypt(signingSecret),
+            secretFingerprint: fingerprintSecret(signingSecret),
+            demoKey,
+          })
+          .onConflictDoUpdate({
+            target: endpoints.demoKey,
+            set: { enabled: true, updatedAt: input.receivedAt },
+          })
+          .returning({ id: endpoints.id });
+        const path =
+          input.scenario === "success"
+            ? "success"
+            : input.scenario === "timeout"
+              ? "timeout"
+              : "always-fail";
+        const [destination] = await transaction
+          .insert(destinations)
+          .values({
+            name: `Demo: ${input.scenario}`,
+            url: `${input.destinationOrigin}/${path}`,
+            demoKey,
+          })
+          .onConflictDoUpdate({
+            target: destinations.demoKey,
+            set: { enabled: true, updatedAt: input.receivedAt },
+          })
+          .returning({ id: destinations.id });
+        if (endpoint === undefined || destination === undefined) {
+          throw new Error("Demo records could not be created.");
+        }
+
+        const payload = {
+          event: "invoice.payment_requested",
+          invoiceId: `inv_demo_${input.scenario.replaceAll("-", "_")}`,
+          account: "Fictional workspace",
+          scenario: input.scenario,
+        };
+        const rawPayload = JSON.stringify(payload);
+        const payloadDigest = `sha256:${createHash("sha256").update(rawPayload).digest("hex")}`;
+        const [created] = await transaction
+          .insert(events)
+          .values({
+            endpointId: endpoint.id,
+            destinationId: destination.id,
+            idempotencyKey: `demo-${input.scenario}-v1`,
+            payloadDigest,
+            payloadRedacted: payload,
+            payloadEncrypted: cipher.encrypt(rawPayload),
+            receivedAt: input.receivedAt,
+          })
+          .onConflictDoNothing({
+            target: [events.endpointId, events.idempotencyKey],
+          })
+          .returning({ id: events.id });
+        if (created !== undefined) {
+          await transaction.insert(activityEvents).values({
+            eventId: created.id,
+            type: "event.received",
+            metadata: { payloadDigest, source: "demo" },
+            createdAt: input.receivedAt,
+          });
+          return { eventId: created.id, duplicate: false };
+        }
+        const [existing] = await transaction
+          .select({ id: events.id })
+          .from(events)
+          .where(
+            and(
+              eq(events.endpointId, endpoint.id),
+              eq(events.idempotencyKey, `demo-${input.scenario}-v1`),
+            ),
+          )
+          .limit(1);
+        if (existing === undefined)
+          throw new Error("Demo event could not be read.");
+        return { eventId: existing.id, duplicate: true };
+      });
+    },
+    async resetDemo() {
+      return database.transaction(async (transaction) => {
+        const deleted = await transaction.execute<{ count: number }>(sql`
+          WITH deleted AS (
+            DELETE FROM events
+            WHERE endpoint_id IN (SELECT id FROM endpoints WHERE demo_key IS NOT NULL)
+            RETURNING id
+          )
+          SELECT count(*)::int AS count FROM deleted
+        `);
+        await transaction
+          .delete(endpoints)
+          .where(sql`${endpoints.demoKey} IS NOT NULL`);
+        await transaction
+          .delete(destinations)
+          .where(sql`${destinations.demoKey} IS NOT NULL`);
+        return { deletedEvents: deleted[0]?.count ?? 0 };
+      });
+    },
     async createEndpoint(input) {
       const signingSecret = createSigningSecret();
       const secretEncrypted = cipher.encrypt(signingSecret);

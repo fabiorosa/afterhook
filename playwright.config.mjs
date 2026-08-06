@@ -22,6 +22,8 @@ export default defineConfig({
         DATABASE_URL: databaseUrl,
         REDIS_URL: redisUrl,
         PORT: "3101",
+        AFTERHOOK_DEMO_ENABLED: "true",
+        AFTERHOOK_DEMO_DESTINATION_ORIGIN: "http://127.0.0.1:3201",
         SECRET_ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
       },
     },

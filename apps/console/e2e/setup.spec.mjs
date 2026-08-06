@@ -407,3 +407,31 @@ test("offers a retry when event history fails", async ({ page }) => {
   ).toBeVisible();
   await expect(page.getByRole("button", { name: "Try again" })).toBeVisible();
 });
+
+test("runs and resets fictional demo data with keyboard and mobile controls", async ({
+  page,
+  request: api,
+}) => {
+  await api.post("http://127.0.0.1:3101/v1/demo/reset", { data: {} });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/#events");
+
+  const success = page.getByRole("button", { name: /Successful delivery/ });
+  await expect(success).toBeVisible();
+  await success.focus();
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/#events\/[a-f0-9-]+$/);
+  await expect(page.getByText("Fictional workspace")).toBeVisible();
+  await expect(page.locator("body")).not.toContainText(/authorization|ahsec_/i);
+
+  await page.getByRole("link", { name: "Back to events" }).click();
+  const reset = page.getByRole("button", { name: "Reset demo data" });
+  await reset.focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("status")).toContainText(
+    "Ordinary records were preserved.",
+  );
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+});

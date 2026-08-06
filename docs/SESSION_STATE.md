@@ -82,15 +82,27 @@ Updated: 2026-08-06.
   queueing through its terminal PostgreSQL state without a reload.
 - Local Quality passes with 48 unit and HTTP tests, 22 integrations, and 10
   Chromium scenarios for WOP-301.
+- WOP-301 was merged through PR #22. Main Quality run `31076175776` passed.
+- WOP-302 adds explicitly enabled success, timeout, and retryable-failure demo
+  scenarios with fixed fictional payloads and identifier-only queue handoff.
+- Persisted demo ownership scopes reset independently of names and preserves
+  ordinary endpoint, destination, event, and attempt history.
+- The console adds restrained demo controls with honest pending, success,
+  error, keyboard, and 390 px behavior.
+- Local gates pass with 52 unit and HTTP tests, 24 integrations, and 11
+  Chromium scenarios. On Windows, Playwright completes every assertion but its
+  web-server teardown can outlive the command timeout; GitHub CI remains the
+  terminal browser-process gate.
 
 ## In progress
 
-WOP-301 is published as draft PR #22 from `agent/event-diagnostics`.
+WOP-302 is published as draft PR #24 from `agent/deterministic-demo` for
+GitHub issue #23.
 
 ## Pending work
 
-1. Review and merge WOP-301 after terminal GitHub checks.
-2. Open WOP-302 separately for deterministic demo modes and guarded reset.
+1. Review and merge WOP-302 only after terminal GitHub checks.
+2. Open WOP-303 separately after the WOP-302 merge gate.
 
 ## Decisions
 
@@ -115,6 +127,8 @@ WOP-301 is published as draft PR #22 from `agent/event-diagnostics`.
   never grants that attempt another automatic retry budget.
 - WOP-301 builds clipboard diagnostics only from an explicit safe attempt
   projection and keeps filtering server-authoritative.
+- WOP-302 requires explicit demo enablement and uses persisted ownership as the
+  only reset authority.
 
 ## Dead ends
 
@@ -126,21 +140,22 @@ WOP-301 is published as draft PR #22 from `agent/event-diagnostics`.
 
 ## Open questions
 
-None for WOP-301.
+None for WOP-302.
 
 ## Next step
 
-Review WOP-301 as the first Phase 3 release slice. Do not begin WOP-302 before
-its merge gate passes.
+Publish and review WOP-302. Do not begin WOP-303 before its merge gate passes.
 
 ## Pending validation
 
-Push and pull-request Quality checks must reach a terminal green state.
+Local Quality, push Quality, and pull-request Quality must reach terminal green
+states.
 
 ## Continuation prompt
 
 ```text
-Review and merge WOP-301 only after terminal GitHub checks. Then open WOP-302 as
-a separate issue and branch for deterministic demo modes and guarded reset. Do
-not add OpenAPI, deployment, or release publication work to WOP-301.
+Review and merge WOP-302 only after terminal GitHub checks. Then open WOP-303 as
+a separate issue and branch for OpenAPI, fresh-clone setup, security policy,
+and deployment runbook. Do not add release evidence or deployment execution to
+WOP-302.
 ```

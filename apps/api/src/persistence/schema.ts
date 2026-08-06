@@ -16,6 +16,7 @@ export const endpoints = pgTable("endpoints", {
   secretEncrypted: text("secret_encrypted").notNull(),
   secretFingerprint: text("secret_fingerprint").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  demoKey: text("demo_key").unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -30,6 +31,7 @@ export const destinations = pgTable("destinations", {
   url: text("url").notNull(),
   authorizationEncrypted: text("authorization_encrypted"),
   enabled: boolean("enabled").notNull().default(true),
+  demoKey: text("demo_key").unique(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),

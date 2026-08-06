@@ -32,6 +32,101 @@ afterAll(async () => {
 });
 
 describe("setup repository", () => {
+  it("maps every fictional scenario to a deterministic local destination", async () => {
+    const receivedAt = new Date("2026-08-06T06:20:00.000Z");
+    for (const scenario of [
+      "success",
+      "timeout",
+      "retryable-failure",
+    ] as const) {
+      await expect(
+        repository.createDemoEvent({
+          scenario,
+          destinationOrigin: "http://127.0.0.1:3201",
+          receivedAt,
+        }),
+      ).resolves.toMatchObject({ duplicate: false });
+    }
+    const rows = await client<{ demo_key: string; url: string }[]>`
+      SELECT demo_key, url FROM destinations
+      WHERE demo_key IS NOT NULL ORDER BY demo_key
+    `;
+    expect(rows).toEqual([
+      {
+        demo_key: "wop-302-retryable-failure",
+        url: "http://127.0.0.1:3201/always-fail",
+      },
+      {
+        demo_key: "wop-302-success",
+        url: "http://127.0.0.1:3201/success",
+      },
+      {
+        demo_key: "wop-302-timeout",
+        url: "http://127.0.0.1:3201/timeout",
+      },
+    ]);
+  });
+
+  it("resets only persistently owned demo records", async () => {
+    const ordinaryEndpoint = await repository.createEndpoint({
+      name: "Ordinary endpoint",
+    });
+    await repository.createDestination({
+      name: "Ordinary destination",
+      url: "https://example.test/ordinary",
+    });
+    const ordinary = await repository.persistEvent({
+      endpointId: ordinaryEndpoint.endpoint.id,
+      idempotencyKey: "ordinary-event-1",
+      payloadDigest: `sha256:${"b".repeat(64)}`,
+      payloadRedacted: { event: "ordinary.fixture" },
+      rawPayload: JSON.stringify({ event: "ordinary.fixture" }),
+      receivedAt: new Date("2026-08-06T06:30:00.000Z"),
+    });
+    if (ordinary.outcome === "conflict") throw new Error("Event conflicted.");
+    await client`
+      INSERT INTO delivery_attempts (
+        event_id, attempt_number, trigger, status, scheduled_at, started_at
+      ) VALUES (
+        ${ordinary.eventId}, 1, 'AUTOMATIC', 'RUNNING',
+        '2026-08-06T06:30:00.000Z', '2026-08-06T06:30:00.000Z'
+      )
+    `;
+    const demo = await repository.createDemoEvent({
+      scenario: "retryable-failure",
+      destinationOrigin: "http://127.0.0.1:3201",
+      receivedAt: new Date("2026-08-06T06:31:00.000Z"),
+    });
+
+    await expect(repository.resetDemo()).resolves.toEqual({ deletedEvents: 1 });
+    await expect(repository.resetDemo()).resolves.toEqual({ deletedEvents: 0 });
+    const rows = await client<
+      {
+        event_id: string;
+        endpoint_demo: string | null;
+        destination_demo: string | null;
+      }[]
+    >`
+      SELECT e.id AS event_id, ep.demo_key AS endpoint_demo,
+             d.demo_key AS destination_demo
+      FROM events e
+      INNER JOIN endpoints ep ON ep.id = e.endpoint_id
+      INNER JOIN destinations d ON d.id = e.destination_id
+    `;
+    const attempts = await client<{ event_id: string }[]>`
+      SELECT event_id FROM delivery_attempts
+    `;
+    expect(demo.eventId).not.toBe(ordinary.eventId);
+    expect(rows).toEqual([
+      {
+        event_id: ordinary.eventId,
+        endpoint_demo: null,
+        destination_demo: null,
+      },
+    ]);
+    expect(attempts).toEqual([{ event_id: ordinary.eventId }]);
+  });
+
   it("persists encrypted material while returning only safe endpoint metadata", async () => {
     const created = await repository.createEndpoint({ name: "Billing events" });
     const rows = await client<

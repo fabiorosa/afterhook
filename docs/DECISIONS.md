@@ -212,3 +212,18 @@ This duplicates a small amount of field selection between the API contract and
 formatter, but makes the sharing boundary auditable. Operators get useful
 evidence without relying on manual redaction or copying sensitive console
 content.
+
+## ADR-017: Persist demo ownership and require opt-in
+
+**Status:** accepted.
+
+WOP-302 requires an explicit environment flag before demo mutations are
+available. Demo setup records use a unique nullable ownership key rather than
+names, slugs, timestamps, or a broad database truncation. This lets one
+transaction delete demo events and their cascading evidence without matching
+ordinary records.
+
+Each scenario is idempotent until reset and uses the real local destination,
+queue, worker, retry, and inspection boundaries. The small ownership columns
+are deliberate schema cost for making destructive scope auditable. A naming
+convention alone would be easier to add but unsafe to use as deletion authority.
