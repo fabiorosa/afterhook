@@ -10,6 +10,9 @@ import {
   eventListItemSchema,
   ingestionErrorSchema,
   ingestionReceiptSchema,
+  manualRetryErrorSchema,
+  manualRetryInputSchema,
+  manualRetryResponseSchema,
   systemHealthSchema,
   webhookHeadersSchema,
   webhookPayloadSchema,
@@ -102,6 +105,7 @@ export function buildServer(
   const eventQueue = options.eventQueue ?? {
     enqueue: () => Promise.resolve(),
     enqueueRetry: () => Promise.resolve(),
+    enqueueManual: () => Promise.resolve(),
     readWorkerHeartbeat: () => Promise.resolve(null),
     close: () => Promise.resolve(),
   };
@@ -198,6 +202,70 @@ export function buildServer(
     }
 
     return eventDetailSchema.parse(event);
+  });
+
+  app.post("/v1/events/:eventId/retry", async (request, reply) => {
+    const params = eventParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.code(404).send(
+        manualRetryErrorSchema.parse({
+          error: "EVENT_NOT_FOUND",
+          message: "The event could not be found.",
+        }),
+      );
+    }
+    const input = manualRetryInputSchema.safeParse(request.body);
+    if (!input.success) {
+      return reply.code(400).send({
+        error: "VALIDATION_ERROR",
+        message: "Request validation failed.",
+        issues: input.error.issues,
+      });
+    }
+
+    const result = await repository.requestManualRetry(
+      params.data.eventId,
+      now(),
+    );
+    if (result.outcome === "not_found") {
+      return reply.code(404).send(
+        manualRetryErrorSchema.parse({
+          error: "EVENT_NOT_FOUND",
+          message: "The event could not be found.",
+        }),
+      );
+    }
+    if (result.outcome === "not_allowed") {
+      return reply.code(409).send(
+        manualRetryErrorSchema.parse({
+          error: "RETRY_NOT_ALLOWED",
+          message:
+            "Manual retry is unavailable while delivery is active or already succeeded.",
+        }),
+      );
+    }
+    if (result.outcome === "rate_limited") {
+      return reply.code(429).send(
+        manualRetryErrorSchema.parse({
+          error: "RETRY_RATE_LIMITED",
+          message: "Wait a few seconds before requesting another manual retry.",
+        }),
+      );
+    }
+
+    try {
+      await eventQueue.enqueueManual(result.eventId, result.attemptNumber);
+    } catch {
+      // PostgreSQL retains the retry reservation for worker reconciliation.
+    }
+    return reply.code(202).send(
+      manualRetryResponseSchema.parse({
+        accepted: true,
+        eventId: result.eventId,
+        attemptNumber: result.attemptNumber,
+        status: "QUEUED",
+      }),
+    );
   });
 
   app.post("/v1/endpoints", async (request, reply) => {

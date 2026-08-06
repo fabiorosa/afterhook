@@ -63,6 +63,7 @@ const eventDetail: EventDetail = {
       createdAt: timestamp,
     },
   ],
+  manualRetry: { allowed: false, reason: "DELIVERY_ACTIVE" },
 };
 
 function createRepository(
@@ -83,6 +84,7 @@ function createRepository(
     listEvents: () => Promise.resolve([eventItem]),
     findEventDetail: (id) =>
       Promise.resolve(id === eventId ? eventDetail : null),
+    requestManualRetry: () => Promise.resolve({ outcome: "not_allowed" }),
   };
 }
 
@@ -345,6 +347,7 @@ describe("ingestion HTTP contract", () => {
               : Promise.resolve();
           },
           enqueueRetry: () => Promise.resolve(),
+          enqueueManual: () => Promise.resolve(),
           readWorkerHeartbeat: () => Promise.resolve(null),
           close: () => Promise.resolve(),
         },
@@ -434,6 +437,75 @@ describe("event inspection HTTP contract", () => {
       message: "The event could not be found.",
     });
   });
+
+  it("accepts one manual retry and keeps queue failure recoverable", async () => {
+    let queuedAttempt: number | undefined;
+    const retryApp = buildServer(
+      {
+        ...createRepository(),
+        requestManualRetry: () =>
+          Promise.resolve({ outcome: "accepted", eventId, attemptNumber: 4 }),
+      },
+      {
+        eventQueue: {
+          enqueue: () => Promise.resolve(),
+          enqueueRetry: () => Promise.resolve(),
+          enqueueManual: (_eventId, attemptNumber) => {
+            queuedAttempt = attemptNumber;
+            return Promise.reject(new Error("redis private detail"));
+          },
+          readWorkerHeartbeat: () => Promise.resolve(null),
+          close: () => Promise.resolve(),
+        },
+      },
+    );
+
+    const response = await retryApp.inject({
+      method: "POST",
+      url: `/v1/events/${eventId}/retry`,
+      payload: {},
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json()).toEqual({
+      accepted: true,
+      eventId,
+      attemptNumber: 4,
+      status: "QUEUED",
+    });
+    expect(queuedAttempt).toBe(4);
+    expect(response.body).not.toContain("private detail");
+  });
+
+  it("rejects missing, active, and rate-limited retries safely", async () => {
+    const outcomes = [
+      ["not_found", 404, "EVENT_NOT_FOUND"],
+      ["not_allowed", 409, "RETRY_NOT_ALLOWED"],
+      ["rate_limited", 429, "RETRY_RATE_LIMITED"],
+    ] as const;
+
+    for (const [outcome, statusCode, error] of outcomes) {
+      const retryApp = buildServer({
+        ...createRepository(),
+        requestManualRetry: () => Promise.resolve({ outcome }),
+      });
+      const response = await retryApp.inject({
+        method: "POST",
+        url: `/v1/events/${eventId}/retry`,
+        payload: {},
+      });
+      expect(response.statusCode).toBe(statusCode);
+      expect(response.json()).toMatchObject({ error });
+    }
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: "/v1/events/not-a-uuid/retry",
+      payload: {},
+    });
+    expect(invalid.statusCode).toBe(404);
+    expect(invalid.json()).toMatchObject({ error: "EVENT_NOT_FOUND" });
+  });
 });
 
 describe("system health HTTP contract", () => {
@@ -442,6 +514,7 @@ describe("system health HTTP contract", () => {
       eventQueue: {
         enqueue: () => Promise.resolve(),
         enqueueRetry: () => Promise.resolve(),
+        enqueueManual: () => Promise.resolve(),
         readWorkerHeartbeat: () =>
           Promise.resolve({
             workerId: "private-worker-host",
@@ -465,6 +538,7 @@ describe("system health HTTP contract", () => {
       eventQueue: {
         enqueue: () => Promise.resolve(),
         enqueueRetry: () => Promise.resolve(),
+        enqueueManual: () => Promise.resolve(),
         readWorkerHeartbeat: () => Promise.reject(new Error("redis private")),
         close: () => Promise.resolve(),
       },

@@ -19,6 +19,7 @@ export type EventQueue = Readonly<{
     attemptNumber: number,
     delayMilliseconds: number,
   ) => Promise<void>;
+  enqueueManual: (eventId: string, attemptNumber: number) => Promise<void>;
   readWorkerHeartbeat: () => Promise<WorkerHeartbeat | null>;
   close: () => Promise<void>;
 }>;
@@ -53,6 +54,17 @@ export function createEventQueue(connection: RedisConnection): EventQueue {
       await queue.add("retry-delivery", job, {
         jobId: `${eventId}:attempt:${String(attemptNumber)}`,
         delay: Math.round(delayMilliseconds),
+        removeOnComplete: true,
+        removeOnFail: false,
+      });
+    },
+    async enqueueManual(eventId, attemptNumber) {
+      const job = deliveryJobSchema.parse({ eventId });
+      if (!Number.isInteger(attemptNumber) || attemptNumber < 1) {
+        throw new Error("Manual attempt number must be positive.");
+      }
+      await queue.add("manual-delivery", job, {
+        jobId: `${eventId}:attempt:${String(attemptNumber)}`,
         removeOnComplete: true,
         removeOnFail: false,
       });

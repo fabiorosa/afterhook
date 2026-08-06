@@ -305,4 +305,96 @@ describe("event persistence", () => {
       repository.findEventDetail("39a92b9a-b6f5-4ea3-a06f-3f339669cbe2"),
     ).resolves.toBeNull();
   });
+
+  it("reserves exactly one manual attempt under concurrent requests", async () => {
+    const input = await createEventInput();
+    const persisted = await repository.persistEvent(input);
+    if (persisted.outcome === "conflict") throw new Error("Event conflicted.");
+    const requestedAt = new Date("2026-08-06T03:40:00.000Z");
+    await client`
+      UPDATE events
+      SET status = 'DEAD_LETTER', completed_at = ${requestedAt}
+      WHERE id = ${persisted.eventId}
+    `;
+    for (let attemptNumber = 1; attemptNumber <= 3; attemptNumber += 1) {
+      await client`
+        INSERT INTO delivery_attempts (
+          event_id, attempt_number, trigger, status, scheduled_at,
+          started_at, finished_at
+        ) VALUES (
+          ${persisted.eventId}, ${attemptNumber}, 'AUTOMATIC',
+          'RETRYABLE_FAILURE', ${requestedAt}, ${requestedAt}, ${requestedAt}
+        )
+      `;
+    }
+
+    const outcomes = await Promise.all(
+      Array.from({ length: 8 }, () =>
+        repository.requestManualRetry(persisted.eventId, requestedAt),
+      ),
+    );
+    const attempts = await client<
+      { attempt_number: number; trigger: string; status: string }[]
+    >`
+      SELECT attempt_number, trigger, status
+      FROM delivery_attempts
+      WHERE event_id = ${persisted.eventId} AND trigger = 'MANUAL'
+    `;
+    const eventRows = await client<
+      { status: string; next_attempt_at: Date | null }[]
+    >`
+      SELECT status, next_attempt_at FROM events WHERE id = ${persisted.eventId}
+    `;
+    const activityRows = await client<{ type: string }[]>`
+      SELECT type FROM activity_events
+      WHERE event_id = ${persisted.eventId} AND type = 'retry.manual_requested'
+    `;
+
+    expect(
+      outcomes.filter((outcome) => outcome.outcome === "accepted"),
+    ).toHaveLength(1);
+    expect(
+      outcomes.filter((outcome) => outcome.outcome === "not_allowed"),
+    ).toHaveLength(7);
+    expect(attempts).toEqual([
+      { attempt_number: 4, trigger: "MANUAL", status: "SCHEDULED" },
+    ]);
+    expect(eventRows).toEqual([
+      { status: "QUEUED", next_attempt_at: requestedAt },
+    ]);
+    expect(activityRows).toEqual([{ type: "retry.manual_requested" }]);
+  });
+
+  it("rate limits repeated manual recovery reservations", async () => {
+    const input = await createEventInput();
+    const persisted = await repository.persistEvent(input);
+    if (persisted.outcome === "conflict") throw new Error("Event conflicted.");
+    const firstAt = new Date("2026-08-06T03:40:00.000Z");
+    await client`
+      UPDATE events SET status = 'FAILED' WHERE id = ${persisted.eventId}
+    `;
+    await expect(
+      repository.requestManualRetry(persisted.eventId, firstAt),
+    ).resolves.toMatchObject({ outcome: "accepted", attemptNumber: 1 });
+    await client`
+      UPDATE delivery_attempts
+      SET status = 'RUNNING', started_at = ${firstAt}
+      WHERE event_id = ${persisted.eventId}
+    `;
+    await client`
+      UPDATE delivery_attempts
+      SET status = 'TERMINAL_FAILURE', finished_at = ${firstAt}
+      WHERE event_id = ${persisted.eventId}
+    `;
+    await client`
+      UPDATE events SET status = 'FAILED' WHERE id = ${persisted.eventId}
+    `;
+
+    await expect(
+      repository.requestManualRetry(
+        persisted.eventId,
+        new Date(firstAt.getTime() + 1_000),
+      ),
+    ).resolves.toEqual({ outcome: "rate_limited" });
+  });
 });

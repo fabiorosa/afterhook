@@ -42,6 +42,8 @@ type ClaimRow = Readonly<{
   payload_encrypted: string;
   authorization_encrypted: string | null;
   attempt_number: number;
+  scheduled_attempt_id: string | null;
+  scheduled_trigger: "MANUAL" | null;
 }>;
 
 type RepositoryOptions = Readonly<{
@@ -79,7 +81,25 @@ export function createAttemptRepository(
             d.url AS destination_url,
             d.authorization_encrypted,
             (
-              SELECT COALESCE(MAX(a.attempt_number), 0)::integer + 1
+              SELECT a.id
+              FROM delivery_attempts a
+              WHERE a.event_id = e.id AND a.status = 'SCHEDULED'
+              ORDER BY a.attempt_number ASC
+              LIMIT 1
+            ) AS scheduled_attempt_id,
+            (
+              SELECT a.trigger
+              FROM delivery_attempts a
+              WHERE a.event_id = e.id AND a.status = 'SCHEDULED'
+              ORDER BY a.attempt_number ASC
+              LIMIT 1
+            ) AS scheduled_trigger,
+            (
+              SELECT CASE
+                WHEN MAX(a.attempt_number) FILTER (WHERE a.status = 'SCHEDULED') IS NOT NULL
+                  THEN MAX(a.attempt_number) FILTER (WHERE a.status = 'SCHEDULED')
+                ELSE COALESCE(MAX(a.attempt_number), 0) + 1
+              END::integer
               FROM delivery_attempts a
               WHERE a.event_id = e.id
             ) AS attempt_number
@@ -93,24 +113,35 @@ export function createAttemptRepository(
           FOR UPDATE OF e
         `;
 
-        if (
-          event === undefined ||
-          event.attempt_number > maximumAutomaticAttempts
-        ) {
+        if (event === undefined) {
           return null;
         }
+        if (
+          event.scheduled_attempt_id === null &&
+          event.attempt_number > maximumAutomaticAttempts
+        )
+          return null;
 
-        const [attempt] = await transaction<{ id: string }[]>`
-          INSERT INTO delivery_attempts (
-            event_id, attempt_number, trigger, status, scheduled_at, started_at
-          ) VALUES (
-            ${eventId}, ${event.attempt_number}, 'AUTOMATIC', 'RUNNING',
-            ${claimedAt}, ${claimedAt}
-          )
-          ON CONFLICT (event_id, attempt_number) DO NOTHING
-          RETURNING id
-        `;
+        const [attempt] =
+          event.scheduled_attempt_id === null
+            ? await transaction<{ id: string }[]>`
+                INSERT INTO delivery_attempts (
+                  event_id, attempt_number, trigger, status, scheduled_at, started_at
+                ) VALUES (
+                  ${eventId}, ${event.attempt_number}, 'AUTOMATIC', 'RUNNING',
+                  ${claimedAt}, ${claimedAt}
+                )
+                ON CONFLICT (event_id, attempt_number) DO NOTHING
+                RETURNING id
+              `
+            : await transaction<{ id: string }[]>`
+                UPDATE delivery_attempts
+                SET status = 'RUNNING', started_at = ${claimedAt}
+                WHERE id = ${event.scheduled_attempt_id} AND status = 'SCHEDULED'
+                RETURNING id
+              `;
         if (attempt === undefined) return null;
+        const trigger = event.scheduled_trigger ?? "AUTOMATIC";
 
         await transaction`
           UPDATE events
@@ -124,7 +155,7 @@ export function createAttemptRepository(
             ${eventId}, ${attempt.id}, 'attempt.started',
             ${transaction.json({
               attemptNumber: event.attempt_number,
-              trigger: "AUTOMATIC",
+              trigger,
             })},
             ${claimedAt}
           )
@@ -148,9 +179,14 @@ export function createAttemptRepository(
       const requestedFinishedAt = now();
       return client.begin(async (transaction) => {
         const [running] = await transaction<
-          { event_id: string; attempt_number: number; started_at: Date }[]
+          {
+            event_id: string;
+            attempt_number: number;
+            started_at: Date;
+            trigger: "AUTOMATIC" | "MANUAL";
+          }[]
         >`
-          SELECT event_id, attempt_number, started_at
+          SELECT event_id, attempt_number, started_at, trigger
           FROM delivery_attempts
           WHERE id = ${attemptId} AND status = 'RUNNING'
           FOR UPDATE
@@ -201,9 +237,11 @@ export function createAttemptRepository(
           responseStatus: result.responseStatus,
         });
         const canRetry =
+          running.trigger === "AUTOMATIC" &&
           classification === "retryable" &&
           running.attempt_number < maximumAutomaticAttempts;
         const exhausted =
+          running.trigger === "AUTOMATIC" &&
           classification === "retryable" &&
           running.attempt_number >= maximumAutomaticAttempts;
         const nextAttemptAt = canRetry
@@ -310,7 +348,11 @@ export function createAttemptRepository(
       >`
         SELECT
           e.id AS event_id,
-          COALESCE(MAX(a.attempt_number), 0)::integer + 1 AS attempt_number,
+          COALESCE(
+            MAX(a.attempt_number) FILTER (WHERE a.status = 'SCHEDULED'),
+            MAX(a.attempt_number) + 1,
+            1
+          )::integer AS attempt_number,
           e.next_attempt_at
         FROM events e
         LEFT JOIN delivery_attempts a ON a.event_id = e.id

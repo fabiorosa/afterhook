@@ -9,6 +9,7 @@ import {
   createWebhookSignature,
   digestWebhookPayload,
   fingerprintSecret,
+  getManualRetryEligibility,
   isWebhookTimestampFresh,
   maxWebhookBodyBytes,
   redactWebhookPayload,
@@ -185,5 +186,26 @@ describe("automatic retry policy", () => {
     expect(() => calculateRetryDelayMilliseconds(1, 2)).toThrow(
       /between zero and one/,
     );
+  });
+});
+
+describe("manual retry policy", () => {
+  it("allows only terminal or exhausted events", () => {
+    expect(getManualRetryEligibility("FAILED")).toEqual({
+      allowed: true,
+      reason: "AVAILABLE",
+    });
+    expect(getManualRetryEligibility("DEAD_LETTER")).toEqual({
+      allowed: true,
+      reason: "AVAILABLE",
+    });
+    expect(getManualRetryEligibility("PROCESSING")).toEqual({
+      allowed: false,
+      reason: "DELIVERY_ACTIVE",
+    });
+    expect(getManualRetryEligibility("DELIVERED")).toEqual({
+      allowed: false,
+      reason: "ALREADY_DELIVERED",
+    });
   });
 });

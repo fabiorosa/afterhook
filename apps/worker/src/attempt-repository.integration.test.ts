@@ -262,4 +262,59 @@ describe("delivery attempt repository", () => {
       "event.dead_lettered",
     ]);
   });
+
+  it("runs a reserved manual attempt without restarting automatic retries", async () => {
+    const event = await persistDeliverableEvent();
+    await client`
+      UPDATE events
+      SET status = 'QUEUED', next_attempt_at = ${currentTime}
+      WHERE id = ${event.eventId}
+    `;
+    const [reserved] = await client<{ id: string }[]>`
+      INSERT INTO delivery_attempts (
+        event_id, attempt_number, trigger, status, scheduled_at
+      ) VALUES (${event.eventId}, 4, 'MANUAL', 'SCHEDULED', ${currentTime})
+      RETURNING id
+    `;
+    if (reserved === undefined)
+      throw new Error("Manual attempt was not reserved.");
+
+    await expect(attempts.listRetrySchedules()).resolves.toEqual([
+      { eventId: event.eventId, attemptNumber: 4, scheduledAt: currentTime },
+    ]);
+    const claimed = await attempts.claim(event.eventId);
+    expect(claimed).toMatchObject({
+      attemptId: reserved.id,
+      attemptNumber: 4,
+      eventId: event.eventId,
+    });
+    if (claimed === null) throw new Error("Manual attempt was not claimed.");
+    currentTime = new Date(currentTime.getTime() + 100);
+    await expect(
+      attempts.complete(claimed.attemptId, {
+        outcome: "http_failure",
+        responseStatus: 503,
+        durationMilliseconds: 100,
+        retryAfterMilliseconds: 1_000,
+      }),
+    ).resolves.toEqual({ outcome: "complete" });
+
+    const [stored] = await client<
+      { event_status: string; attempt_status: string; trigger: string }[]
+    >`
+      SELECT
+        e.status AS event_status,
+        a.status AS attempt_status,
+        a.trigger
+      FROM events e
+      INNER JOIN delivery_attempts a ON a.event_id = e.id
+      WHERE a.id = ${reserved.id}
+    `;
+    expect(stored).toEqual({
+      event_status: "FAILED",
+      attempt_status: "RETRYABLE_FAILURE",
+      trigger: "MANUAL",
+    });
+    await expect(attempts.listRetrySchedules()).resolves.toEqual([]);
+  });
 });

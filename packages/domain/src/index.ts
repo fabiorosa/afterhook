@@ -16,6 +16,7 @@ export const maximumAutomaticAttempts = 3;
 export const retryBaseDelayMilliseconds = 1_000;
 export const retryMaximumDelayMilliseconds = 30_000;
 export const retryJitterRatio = 0.2;
+export const manualRetryCooldownMilliseconds = 5_000;
 const sensitivePayloadKeys = new Set([
   "apikey",
   "authorization",
@@ -34,6 +35,28 @@ export type DeliveryFailureInput = Readonly<{
 }>;
 
 export type DeliveryFailureClassification = "retryable" | "terminal";
+
+export type ManualRetryEligibility = Readonly<{
+  allowed: boolean;
+  reason: "AVAILABLE" | "DELIVERY_ACTIVE" | "ALREADY_DELIVERED";
+}>;
+
+export function getManualRetryEligibility(
+  status:
+    | "RECEIVED"
+    | "QUEUED"
+    | "PROCESSING"
+    | "DELIVERED"
+    | "FAILED"
+    | "DEAD_LETTER",
+): ManualRetryEligibility {
+  if (status === "FAILED" || status === "DEAD_LETTER") {
+    return { allowed: true, reason: "AVAILABLE" };
+  }
+  return status === "DELIVERED"
+    ? { allowed: false, reason: "ALREADY_DELIVERED" }
+    : { allowed: false, reason: "DELIVERY_ACTIVE" };
+}
 
 export function classifyDeliveryFailure(
   failure: DeliveryFailureInput,
