@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 
 import {
   createDestinationInputSchema,
+  deliveryAttemptSchema,
+  deliveryJobSchema,
   endpointSlugSchema,
   eventDetailSchema,
+  eventFilterSchema,
   eventListItemSchema,
-  deliveryJobSchema,
   idempotencyKeySchema,
   ingestionReceiptSchema,
   manualRetryErrorSchema,
@@ -156,6 +158,7 @@ describe("event inspection contracts", () => {
             createdAt: "2026-08-05T12:00:00.000Z",
           },
         ],
+        attempts: [],
         manualRetry: { allowed: false, reason: "DELIVERY_ACTIVE" },
       }),
     ).toMatchObject({ payloadRedacted: { token: "[REDACTED]" } });
@@ -185,5 +188,32 @@ describe("event inspection contracts", () => {
     expect(
       eventListItemSchema.safeParse({ ...event, attemptCount: -1 }).success,
     ).toBe(false);
+  });
+
+  it("validates event filters and safe attempt detail", () => {
+    expect(
+      eventFilterSchema.parse({
+        status: "FAILED",
+        endpointId: event.endpoint.id,
+      }),
+    ).toEqual({ status: "FAILED", endpointId: event.endpoint.id });
+    expect(eventFilterSchema.safeParse({ status: "UNKNOWN" }).success).toBe(
+      false,
+    );
+    expect(
+      deliveryAttemptSchema.parse({
+        id: "17bfabde-4c6c-4722-a3a2-6c9c9e77e49c",
+        attemptNumber: 1,
+        trigger: "AUTOMATIC",
+        status: "TERMINAL_FAILURE",
+        scheduledAt: "2026-08-06T04:00:00.000Z",
+        startedAt: "2026-08-06T04:00:01.000Z",
+        finishedAt: "2026-08-06T04:00:02.000Z",
+        durationMilliseconds: 820,
+        responseStatus: 400,
+        errorCode: "HTTP_FAILURE",
+        safeErrorMessage: "The destination did not accept the delivery.",
+      }),
+    ).toMatchObject({ status: "TERMINAL_FAILURE", responseStatus: 400 });
   });
 });
