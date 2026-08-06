@@ -16,6 +16,7 @@
     "paths": {
       "@afterhook/contracts": ["./packages/contracts/src/index.ts"],
       "@afterhook/domain": ["./packages/domain/src/index.ts"],
+      "@afterhook/delivery": ["./packages/delivery/src/index.ts"],
       "@afterhook/orchestration": ["./packages/orchestration/src/index.ts"]
     },
     "skipLibCheck": true,

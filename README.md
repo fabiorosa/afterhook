@@ -8,7 +8,7 @@ Repository and npm name: `afterhook`.
 
 ## Current stage
 
-WOP-201 is complete. A local operator can create and list secret-safe endpoints
+WOP-202 is complete. A local operator can create and list secret-safe endpoints
 and destinations, then send a bounded JSON object signed with the endpoint
 secret. The API verifies the timestamp and exact raw body, rejects replayed or
 altered requests, and atomically persists one authoritative event with its
@@ -19,6 +19,9 @@ activity that proves receipt without implying destination delivery.
 Persisted events cross an idempotent BullMQ boundary as identifier-only jobs.
 The worker publishes an expiring Redis heartbeat, and `/health` exposes only
 safe worker availability and the last observed timestamp.
+The delivery transport can call a deterministic local destination with pinned
+DNS, SSRF-safe defaults, no redirects, bounded timeouts, and bounded response
+discarding. Queue consumption waits for authoritative attempts in WOP-203.
 
 ## Local development
 
@@ -50,6 +53,7 @@ In separate terminals with the same `DATABASE_URL`, `REDIS_URL`, and
 ```powershell
 npm --workspace @afterhook/worker run start
 node apps/api/dist/index.js
+npm --workspace @afterhook/destination run start
 npm --workspace @afterhook/console run dev
 ```
 

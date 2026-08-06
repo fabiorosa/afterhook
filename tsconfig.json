@@ -3,9 +3,11 @@
   "references": [
     { "path": "./apps/api/tsconfig.json" },
     { "path": "./apps/console/tsconfig.json" },
+    { "path": "./apps/destination/tsconfig.json" },
     { "path": "./apps/worker/tsconfig.json" },
     { "path": "./packages/contracts/tsconfig.json" },
     { "path": "./packages/domain/tsconfig.json" },
+    { "path": "./packages/delivery/tsconfig.json" },
     { "path": "./packages/orchestration/tsconfig.json" }
   ]
 }

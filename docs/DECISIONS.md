@@ -132,3 +132,19 @@ Queue failure returns a safe temporary error after persistence. Retrying the
 same idempotency key repeats only the idempotent queue handoff. The worker
 heartbeat is an expiring Redis coordination value, while the public health
 projection omits worker identity and Redis details.
+
+## ADR-012: Pinned delivery transport before queue consumption
+
+**Status:** accepted.
+
+WOP-202 isolates and proves the outbound HTTP boundary before the worker
+consumes delivery jobs. DNS resolution is validated once and the Undici agent
+is pinned to an approved address, preventing a second uncontrolled lookup.
+Redirects are not followed, response bodies are discarded within a fixed
+limit, and public results omit bodies, authorization, socket errors, and
+addresses.
+
+The local destination override is explicit and still rejects link-local and
+metadata ranges. Queue consumption remains deferred until WOP-203 can create
+and complete an append-only PostgreSQL attempt around the network call. This
+avoids acknowledging delivery work that has no authoritative execution record.
