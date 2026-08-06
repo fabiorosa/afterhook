@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { request } from "./api.js";
 import { AttemptHistory } from "./attempt-history.js";
+import { DemoControls } from "./demo-controls.js";
 import {
   buildEventDiagnostics,
   type SafeDiagnosticAttempt,
@@ -182,6 +183,7 @@ function EventList() {
           durable storage, not destination delivery.
         </p>
       </section>
+      <DemoControls onReset={loadEvents} />
       <section className="event-filters" aria-label="Event filters">
         <label>
           Status
