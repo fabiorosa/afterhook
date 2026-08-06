@@ -544,6 +544,48 @@ button:disabled {
   justify-content: space-between;
   margin-bottom: 18px;
 }
+.manual-recovery {
+  align-items: center;
+  border-bottom: 1px solid #29302a;
+  border-top: 1px solid #29302a;
+  display: flex;
+  gap: 28px;
+  justify-content: space-between;
+  margin: -18px 0 48px;
+  padding: 24px 0;
+}
+.manual-recovery h2 {
+  font-size: 22px;
+  font-weight: 400;
+  margin: 0 0 8px;
+}
+.manual-recovery p {
+  color: #aab2aa;
+  font:
+    14px/1.55 Arial,
+    sans-serif;
+  margin: 0;
+  max-width: 48ch;
+}
+.manual-recovery button {
+  flex: 0 0 auto;
+}
+.manual-recovery .unavailable-action {
+  cursor: not-allowed;
+}
+.recovery-feedback {
+  border-left: 3px solid #a7c99a;
+  color: #d8ebd0;
+  font:
+    14px/1.5 Arial,
+    sans-serif;
+  margin: -28px 0 48px;
+  padding: 10px 14px;
+}
+.recovery-error {
+  border-color: #d49b7d;
+  color: #f0d7ca;
+}
 .payload-heading p {
   color: #89928b;
   font:
@@ -613,6 +655,13 @@ button:disabled {
   margin: 15px 0 0;
 }
 @media (max-width: 720px) {
+  .manual-recovery {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .manual-recovery button {
+    width: 100%;
+  }
   .shell {
     width: min(100% - 28px, 1160px);
   }

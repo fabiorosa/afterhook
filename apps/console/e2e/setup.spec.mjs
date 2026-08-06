@@ -269,6 +269,50 @@ test("shows dead-letter state after the automatic budget is exhausted", async ({
   await expect(page.getByText("Dead letter", { exact: true })).toBeVisible();
 });
 
+test("recovers a dead-letter event through one safe manual retry", async ({
+  page,
+  request: api,
+}) => {
+  const created = await createReceivedEvent(
+    api,
+    "manual-recovery",
+    "manual-recovery",
+  );
+  const detailUrl = `http://127.0.0.1:3101/v1/events/${created.event.eventId}`;
+
+  await expect
+    .poll(async () => (await (await api.get(detailUrl)).json()).status, {
+      timeout: 12_000,
+    })
+    .toBe("DEAD_LETTER");
+  await page.goto(`/#events/${created.event.eventId}`);
+  const retryButton = page.getByRole("button", { name: "Retry delivery" });
+  await retryButton.focus();
+  await expect(retryButton).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(
+    page.getByText("Manual attempt 4 was safely queued."),
+  ).toBeVisible();
+  await expect
+    .poll(async () => (await (await api.get(detailUrl)).json()).status, {
+      timeout: 8_000,
+    })
+    .toBe("DELIVERED");
+  await page.reload();
+  await expect(page.getByText("Manual recovery requested")).toBeVisible();
+  await expect(page.getByText("Delivery started")).toHaveCount(4);
+  await expect(page.getByText("Delivered", { exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Retry delivery" }),
+  ).toBeDisabled();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+    390,
+  );
+});
+
 test("shows honest event loading and empty states", async ({ page }) => {
   await page.route("**/v1/events", async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 400));
