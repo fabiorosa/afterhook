@@ -227,3 +227,17 @@ Each scenario is idempotent until reset and uses the real local destination,
 queue, worker, retry, and inspection boundaries. The small ownership columns
 are deliberate schema cost for making destructive scope auditable. A naming
 convention alone would be easier to add but unsafe to use as deletion authority.
+
+## ADR-018: Publish a narrow contract before deployment
+
+**Status:** accepted.
+
+WOP-303 publishes an OpenAPI 3.1 document before introducing generated clients
+or a hosted environment. The document is intentionally hand-authored from the
+existing Zod and Fastify boundary, then protected by a route-presence test. This
+keeps the contract readable during the pre-release phase without introducing a
+generator dependency that has no current consumer.
+
+The runbook describes operational requirements and failure limits, but it does
+not select a provider or imply that a demo is deployed. Hosting is a material
+product decision reserved for WOP-305.

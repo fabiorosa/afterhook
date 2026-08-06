@@ -328,3 +328,16 @@ records in the same PostgreSQL transaction. Ordinary records have a null marker
 and cannot match the reset predicate. Disabled environments still expose a
 read-only capability response so the console can omit the controls, while both
 mutation routes return not found.
+
+## WOP-303 public contract and operations boundary
+
+`docs/openapi.yaml` is the versioned public description of Fastify routes. It
+documents only request fields and safe response projections, not storage rows,
+encrypted envelopes, destination delivery internals, or unrestricted error
+details. A regression test names every public route so a new handler cannot
+silently escape the published contract.
+
+The deployment runbook preserves the local-first boundary: it defines process
+roles, secrets, migration ordering, health verification, and rollback limits
+without claiming a hosted environment. A later release ticket must choose and
+prove an actual platform separately.
