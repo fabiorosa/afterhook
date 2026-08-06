@@ -111,6 +111,27 @@ export const ingestionReceiptSchema = z.object({
   duplicate: z.boolean(),
 });
 
+export const deliveryJobSchema = z
+  .object({
+    eventId: z.uuid(),
+  })
+  .strict();
+
+export const workerHeartbeatSchema = z
+  .object({
+    workerId: z.string().trim().min(1).max(128),
+    recordedAt: z.iso.datetime(),
+  })
+  .strict();
+
+export const systemHealthSchema = z.object({
+  status: z.enum(["ok", "degraded"]),
+  worker: z.object({
+    status: z.enum(["healthy", "unavailable"]),
+    lastSeenAt: z.iso.datetime().nullable(),
+  }),
+});
+
 export const ingestionErrorSchema = z.object({
   error: z.enum([
     "INVALID_REQUEST",
@@ -118,6 +139,7 @@ export const ingestionErrorSchema = z.object({
     "SIGNATURE_REJECTED",
     "PAYLOAD_TOO_LARGE",
     "IDEMPOTENCY_CONFLICT",
+    "QUEUE_UNAVAILABLE",
     "INTERNAL_ERROR",
   ]),
   message: z.string(),
@@ -178,5 +200,8 @@ export type WebhookHeaders = z.infer<typeof webhookHeadersSchema>;
 export type WebhookPayload = z.infer<typeof webhookPayloadSchema>;
 export type IngestionReceipt = z.infer<typeof ingestionReceiptSchema>;
 export type IngestionError = z.infer<typeof ingestionErrorSchema>;
+export type DeliveryJob = z.infer<typeof deliveryJobSchema>;
+export type WorkerHeartbeat = z.infer<typeof workerHeartbeatSchema>;
+export type SystemHealth = z.infer<typeof systemHealthSchema>;
 export type EventListItem = z.infer<typeof eventListItemSchema>;
 export type EventDetail = z.infer<typeof eventDetailSchema>;

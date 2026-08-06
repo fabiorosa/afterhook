@@ -5,8 +5,11 @@ import {
   endpointSlugSchema,
   eventDetailSchema,
   eventListItemSchema,
+  deliveryJobSchema,
   idempotencyKeySchema,
   ingestionReceiptSchema,
+  systemHealthSchema,
+  workerHeartbeatSchema,
   webhookHeadersSchema,
   webhookPayloadSchema,
 } from "./index.js";
@@ -41,6 +44,43 @@ describe("setup contracts", () => {
 });
 
 describe("ingestion contracts", () => {
+  it("accepts only an event identifier in delivery jobs", () => {
+    const eventId = "75339b4d-bb60-43b6-93bd-30436cb6454a";
+    expect(deliveryJobSchema.parse({ eventId })).toEqual({ eventId });
+    expect(() => deliveryJobSchema.parse({ eventId, payload: {} })).toThrow();
+    expect(() => deliveryJobSchema.parse({ eventId: "not-a-uuid" })).toThrow();
+  });
+
+  it("validates timestamped worker heartbeats", () => {
+    expect(
+      workerHeartbeatSchema.parse({
+        workerId: "worker-local-1",
+        recordedAt: "2026-08-05T23:59:00.000Z",
+      }),
+    ).toEqual({
+      workerId: "worker-local-1",
+      recordedAt: "2026-08-05T23:59:00.000Z",
+    });
+  });
+
+  it("keeps public health output narrow", () => {
+    expect(
+      systemHealthSchema.parse({
+        status: "ok",
+        worker: {
+          status: "healthy",
+          lastSeenAt: "2026-08-05T23:59:00.000Z",
+        },
+      }),
+    ).toEqual({
+      status: "ok",
+      worker: {
+        status: "healthy",
+        lastSeenAt: "2026-08-05T23:59:00.000Z",
+      },
+    });
+  });
+
   it("accepts explicit signed-request metadata and an object payload", () => {
     expect(
       webhookHeadersSchema.parse({
