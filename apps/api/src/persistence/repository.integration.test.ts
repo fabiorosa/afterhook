@@ -22,7 +22,7 @@ const repository = createPostgresRepository(
 
 beforeEach(async () => {
   await client.unsafe(
-    'TRUNCATE TABLE "activity_events", "events", "destinations", "endpoints"',
+    'TRUNCATE TABLE "activity_events", "delivery_attempts", "events", "destinations", "endpoints"',
   );
 });
 
@@ -89,6 +89,10 @@ describe("setup repository", () => {
 describe("event persistence", () => {
   async function createEventInput() {
     const created = await repository.createEndpoint({ name: "Billing events" });
+    await repository.createDestination({
+      name: "Billing receiver",
+      url: "https://example.test/billing",
+    });
     return {
       endpointId: created.endpoint.id,
       idempotencyKey: "invoice-4200",
@@ -204,6 +208,10 @@ describe("event persistence", () => {
 
   it("exposes stable HTTP duplicate and conflict outcomes", async () => {
     const created = await repository.createEndpoint({ name: "Billing events" });
+    await repository.createDestination({
+      name: "Billing receiver",
+      url: "https://example.test/billing",
+    });
     const timestamp = 1_785_945_600;
     const firstBody = '{"event":"invoice.paid","token":"private"}';
     const secondBody = '{"event":"invoice.failed"}';

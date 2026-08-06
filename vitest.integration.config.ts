@@ -5,6 +5,7 @@ export default defineConfig({
     include: [
       "apps/api/src/persistence/**/*.integration.test.ts",
       "apps/destination/src/**/*.integration.test.ts",
+      "apps/worker/src/**/*.integration.test.ts",
       "packages/orchestration/src/**/*.integration.test.ts",
     ],
   },

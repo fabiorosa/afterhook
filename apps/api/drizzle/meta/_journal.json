@@ -15,6 +15,13 @@
       "when": 1785962198534,
       "tag": "0001_black_fantastic_four",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1785980428455,
+      "tag": "0002_bumpy_iron_man",
+      "breakpoints": true
     }
   ]
 }

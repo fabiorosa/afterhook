@@ -10,7 +10,10 @@ import {
 } from "@afterhook/domain";
 import { afterEach, describe, expect, it } from "vitest";
 
-import type { SetupRepository } from "./persistence/repository.js";
+import {
+  DestinationUnavailableError,
+  type SetupRepository,
+} from "./persistence/repository.js";
 import { buildServer } from "./server.js";
 
 const timestamp = "2026-07-26T00:00:00.000Z";
@@ -370,6 +373,28 @@ describe("ingestion HTTP contract", () => {
     expect(first.body).not.toContain("private detail");
     expect(retried.statusCode).toBe(200);
     expect(retried.json()).toMatchObject({ eventId, duplicate: true });
+  });
+
+  it("requires an enabled destination before accepting an event", async () => {
+    const destinationApp = buildServer(
+      {
+        ...createRepository(),
+        persistEvent: () => Promise.reject(new DestinationUnavailableError()),
+      },
+      { now: () => webhookNow },
+    );
+    const response = await destinationApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({
+      error: "DESTINATION_UNAVAILABLE",
+      message: "Create an enabled destination before accepting events.",
+    });
   });
 });
 
