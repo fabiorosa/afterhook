@@ -281,3 +281,20 @@ three automatic attempts, applies exponential delay from one second with 20
 percent bounded jitter, caps delays and `Retry-After` at 30 seconds, and moves
 an exhausted retryable event to `DEAD_LETTER`. Retry and dead-letter activities
 contain only safe classification, timing, attempt number, and HTTP status.
+
+## WOP-205 manual recovery boundary
+
+Manual recovery begins with `POST /v1/events/:eventId/retry` and an empty,
+strictly validated JSON object. Only `FAILED` and `DEAD_LETTER` events are
+eligible. One PostgreSQL transaction locks the event, enforces a five-second
+request cooldown, allocates the next attempt number, inserts a `SCHEDULED`
+attempt with the `MANUAL` trigger, changes the event to `QUEUED`, and appends
+`retry.manual_requested`.
+
+The API publishes an identifier-only BullMQ job after commit. Queue failure
+does not discard the accepted recovery request because worker reconciliation
+also discovers the persisted scheduled attempt. The worker changes that exact
+attempt from `SCHEDULED` to `RUNNING`; it never creates a replacement. A failed
+manual attempt returns the event to `FAILED` and does not restart the automatic
+retry budget. PostgreSQL row locking and the event transition ensure concurrent
+requests reserve one attempt.

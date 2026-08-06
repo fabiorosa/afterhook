@@ -182,3 +182,18 @@ HTTP 408, 425, 429, and 5xx are retryable; other non-success HTTP responses are
 terminal. Exponential backoff starts at one second, uses 20 percent bounded
 jitter, and caps both calculated delay and `Retry-After` at 30 seconds.
 Exhaustion produces `DEAD_LETTER`. Manual recovery remains WOP-205.
+
+## ADR-015: Reserve manual retries before queue handoff
+
+**Status:** accepted.
+
+WOP-205 represents an accepted manual recovery request as a `SCHEDULED`
+delivery attempt in PostgreSQL. The event row is locked while the next attempt
+number, event state, and activity are committed. This makes concurrent retry
+requests deterministic and retains recovery intent if Redis is unavailable.
+
+The append-only database trigger permits only the narrow transition from
+`SCHEDULED` to `RUNNING`, with identity, event, attempt number, trigger, and
+schedule unchanged. Completed attempts remain immutable. Manual failure does
+not receive another automatic retry budget, which keeps operator actions
+bounded and visible.

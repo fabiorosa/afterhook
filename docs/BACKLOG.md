@@ -37,7 +37,7 @@ loading, error, focus, and mobile states are complete.
 | WOP-202 | Deliver to the local destination with timeout and SSRF boundaries. GitHub #13          | done   |
 | WOP-203 | Record append-only attempts and update the human-readable timeline. GitHub #15         | done   |
 | WOP-204 | Add retry classification, bounded automatic backoff, and dead-letter state. GitHub #17 | done   |
-| WOP-205 | Add safe manual retry with concurrency protection                                      | todo   |
+| WOP-205 | Add safe manual retry with concurrency protection. GitHub #19                          | done   |
 
 **Gate:** success, timeout, retryable failure, terminal failure, automatic retry,
 and manual recovery pass against real PostgreSQL, Redis, and HTTP processes.

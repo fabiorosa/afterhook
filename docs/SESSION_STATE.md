@@ -62,15 +62,25 @@ Updated: 2026-08-06.
   Calculated delay and safe `Retry-After` handling are capped at 30 seconds.
 - Local Quality passes with 40 unit and HTTP tests, 18 integrations, and 8
   Chromium scenarios for WOP-204.
+- WOP-204 was merged through PR #18. Main Quality run `31068900346` passed.
+- WOP-205 reserves one `MANUAL` attempt in PostgreSQL before queue handoff.
+  Only failed or dead-letter events are eligible, concurrent requests resolve
+  to one reservation, and repeated requests have a five-second cooldown.
+- The worker claims the persisted scheduled attempt without replacing it.
+  Manual failure returns to `FAILED` without restarting automatic retries.
+- Event detail exposes server-owned retry eligibility, honest disabled and
+  submitting states, safe feedback, and a manual recovery timeline entry.
+- Local Quality passes with 44 unit and HTTP tests, 22 integrations, and 9
+  Chromium scenarios for WOP-205.
 
 ## In progress
 
-WOP-204 is published as draft PR #18 from `agent/bounded-retries`.
+WOP-205 is on `agent/safe-manual-retry` for draft pull request review.
 
 ## Pending work
 
-1. Review and merge WOP-204 after terminal GitHub checks.
-2. Open WOP-205 separately for safe manual retry with concurrency protection.
+1. Review and merge WOP-205 after terminal GitHub checks.
+2. Open WOP-301 separately for complete event filters and diagnostics.
 
 ## Decisions
 
@@ -91,6 +101,8 @@ WOP-204 is published as draft PR #18 from `agent/bounded-retries`.
   owns classification, backoff, and dead-letter transitions.
 - WOP-204 permits exactly three automatic attempts and leaves manual recovery
   to WOP-205.
+- WOP-205 persists a scheduled manual attempt before Redis coordination and
+  never grants that attempt another automatic retry budget.
 
 ## Dead ends
 
@@ -102,12 +114,12 @@ WOP-204 is published as draft PR #18 from `agent/bounded-retries`.
 
 ## Open questions
 
-None for WOP-204.
+None for WOP-205.
 
 ## Next step
 
-Review WOP-204 as one bounded recovery slice. Do not begin WOP-205 before its
-merge gate passes.
+Review WOP-205 as the final Phase 2 recovery slice. Do not begin WOP-301 before
+its merge gate passes.
 
 ## Pending validation
 
@@ -116,7 +128,8 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-204 only after terminal GitHub checks. Then open WOP-205 as
-a separate issue and branch for safe manual retry. Do not add accounts,
-multi-tenancy, deployment, or release work to WOP-204.
+Review and merge WOP-205 only after terminal GitHub checks. Then open WOP-301 as
+a separate issue and branch for filters, attempt detail, copyable diagnostics,
+and recovery feedback. Do not add accounts, multi-tenancy, or deployment work
+to WOP-205.
 ```

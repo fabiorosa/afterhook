@@ -134,6 +134,15 @@ dead-letter exhaustion; BullMQ coverage for idempotent delayed jobs; and worker
 reconciliation coverage for lost queue state. Chromium proves both recovery on
 the third attempt and dead-letter after three retryable failures.
 
+WOP-205 adds strict manual retry contracts and domain eligibility coverage.
+Real PostgreSQL tests issue eight concurrent recovery requests and prove one
+`MANUAL` attempt is reserved, enforce the cooldown, and retain append-only
+history. Worker coverage claims the reserved attempt and proves its failure
+does not schedule automatic work. BullMQ coverage verifies one identifier-only
+manual job. Chromium reaches dead-letter after three failures, performs a
+keyboard manual retry that succeeds on attempt four, and rechecks the recovered
+detail at 390 px without exposing credentials.
+
 ## Static gates
 
 - TypeScript strict typecheck.
