@@ -221,6 +221,41 @@ test("keeps event rows operable at a mobile viewport", async ({
   );
 });
 
+test("combines status and endpoint filters and clears an empty result", async ({
+  page,
+  request: api,
+}) => {
+  const created = await createReceivedEvent(api, "filtered", "terminal");
+  await expect
+    .poll(async () => {
+      const response = await api.get(
+        `http://127.0.0.1:3101/v1/events/${created.event.eventId}`,
+      );
+      return (await response.json()).status;
+    })
+    .toBe("FAILED");
+  await page.goto("/#events");
+
+  const status = page.getByLabel("Status");
+  const endpoint = page.getByLabel("Endpoint");
+  await status.focus();
+  await expect(status).toBeFocused();
+  await status.selectOption("FAILED");
+  await endpoint.selectOption(created.endpoint.id);
+  await expect(
+    page.locator(`a[href="#events/${created.event.eventId}"]`),
+  ).toBeVisible();
+
+  await status.selectOption("DELIVERED");
+  await expect(
+    page.getByRole("heading", { name: "No events match these filters." }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Clear filters" }).last().click();
+  await expect(
+    page.locator(`a[href="#events/${created.event.eventId}"]`),
+  ).toBeVisible();
+});
+
 test("shows bounded retries that recover on the third attempt", async ({
   page,
   request: api,
@@ -273,6 +308,7 @@ test("recovers a dead-letter event through one safe manual retry", async ({
   page,
   request: api,
 }) => {
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   const created = await createReceivedEvent(
     api,
     "manual-recovery",
@@ -290,21 +326,40 @@ test("recovers a dead-letter event through one safe manual retry", async ({
   await retryButton.focus();
   await expect(retryButton).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(
-    page.getByText("Manual attempt 4 was safely queued."),
-  ).toBeVisible();
   await expect
     .poll(async () => (await (await api.get(detailUrl)).json()).status, {
       timeout: 8_000,
     })
     .toBe("DELIVERED");
-  await page.reload();
+  await expect(
+    page.getByText("Manual attempt 4 delivered successfully."),
+  ).toBeVisible();
   await expect(page.getByText("Manual recovery requested")).toBeVisible();
   await expect(page.getByText("Delivery started")).toHaveCount(4);
+  await expect(page.getByText("Attempt 4", { exact: true })).toBeVisible();
   await expect(page.getByText("Delivered", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Retry delivery" }),
   ).toBeDisabled();
+
+  await page.getByRole("button", { name: "Copy event diagnostics" }).click();
+  await expect(page.getByText("Copied", { exact: true })).toBeVisible();
+  const copied = await page.evaluate(() => navigator.clipboard.readText());
+  expect(copied).toContain(`Event: ${created.event.eventId}`);
+  expect(copied).toContain("Attempt: 4");
+  expect(copied).not.toContain("private-manual-recovery");
+  expect(copied).not.toContain("destination-manual-recovery");
+
+  await page.evaluate(() => {
+    Object.defineProperty(navigator.clipboard, "writeText", {
+      configurable: true,
+      value: () => Promise.reject(new Error("clipboard denied")),
+    });
+  });
+  await page.getByRole("button", { name: "Copy diagnostics" }).last().click();
+  await expect(
+    page.getByText("Attempt diagnostics could not be copied"),
+  ).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
