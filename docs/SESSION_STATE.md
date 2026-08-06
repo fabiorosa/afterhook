@@ -85,7 +85,7 @@ Updated: 2026-08-06.
 
 ## In progress
 
-WOP-301 is on `agent/event-diagnostics` for draft pull request review.
+WOP-301 is published as draft PR #22 from `agent/event-diagnostics`.
 
 ## Pending work
 
