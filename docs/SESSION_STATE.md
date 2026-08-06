@@ -65,7 +65,7 @@ Updated: 2026-08-06.
 
 ## In progress
 
-WOP-204 is on `agent/bounded-retries` for draft pull request review.
+WOP-204 is published as draft PR #18 from `agent/bounded-retries`.
 
 ## Pending work
 
