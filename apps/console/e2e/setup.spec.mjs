@@ -2,7 +2,11 @@ import { createHmac } from "node:crypto";
 
 import { expect, test } from "@playwright/test";
 import { createSecretCipher } from "@afterhook/domain";
-import { deliveryQueueName } from "@afterhook/orchestration";
+import {
+  createEventQueue,
+  createRedisConnection,
+  deliveryQueueName,
+} from "@afterhook/orchestration";
 import { Worker } from "bullmq";
 
 import { createAttemptRepository } from "../../worker/dist/attempt-repository.js";
@@ -10,6 +14,8 @@ import { createDeliveryProcessor } from "../../worker/dist/processor.js";
 
 let worker;
 let attempts;
+let retryQueue;
+let retryRedis;
 
 test.beforeAll(async ({ request: api }) => {
   const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
@@ -21,9 +27,13 @@ test.beforeAll(async ({ request: api }) => {
     "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
   );
   attempts = createAttemptRepository(databaseUrl, cipher);
+  retryRedis = createRedisConnection(redisUrl);
+  retryQueue = createEventQueue(retryRedis);
   const parsedRedisUrl = new URL(redisUrl);
   const processDelivery = createDeliveryProcessor(attempts, {
     allowPrivateNetwork: true,
+    scheduleRetry: (eventId, attemptNumber, delayMilliseconds) =>
+      retryQueue.enqueueRetry(eventId, attemptNumber, delayMilliseconds),
   });
   worker = new Worker(deliveryQueueName, (job) => processDelivery(job.data), {
     connection: {
@@ -45,16 +55,18 @@ test.beforeAll(async ({ request: api }) => {
 
 test.afterAll(async () => {
   await worker?.close();
+  await retryQueue?.close();
+  await retryRedis?.quit();
   await attempts?.close();
 });
 
-async function createReceivedEvent(api, suffix) {
+async function createReceivedEvent(api, suffix, destinationMode = "success") {
   const destinationResponse = await api.post(
     "http://127.0.0.1:3101/v1/destinations",
     {
       data: {
         name: `Local receiver ${suffix}`,
-        url: "http://127.0.0.1:3201/success",
+        url: `http://127.0.0.1:3201/${destinationMode}`,
         authorization: `Bearer destination-${suffix}`,
       },
     },
@@ -207,6 +219,54 @@ test("keeps event rows operable at a mobile viewport", async ({
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
     390,
   );
+});
+
+test("shows bounded retries that recover on the third attempt", async ({
+  page,
+  request: api,
+}) => {
+  const created = await createReceivedEvent(api, "flaky", "flaky");
+
+  await expect
+    .poll(
+      async () => {
+        const response = await api.get(
+          `http://127.0.0.1:3101/v1/events/${created.event.eventId}`,
+        );
+        return (await response.json()).status;
+      },
+      { timeout: 12_000 },
+    )
+    .toBe("DELIVERED");
+
+  await page.goto(`/#events/${created.event.eventId}`);
+  await expect(page.getByText("Automatic retry scheduled")).toHaveCount(2);
+  await expect(page.getByText("Delivery started")).toHaveCount(3);
+  await expect(page.getByText("Delivered", { exact: true })).toBeVisible();
+});
+
+test("shows dead-letter state after the automatic budget is exhausted", async ({
+  page,
+  request: api,
+}) => {
+  const created = await createReceivedEvent(api, "dead-letter", "always-fail");
+
+  await expect
+    .poll(
+      async () => {
+        const response = await api.get(
+          `http://127.0.0.1:3101/v1/events/${created.event.eventId}`,
+        );
+        return (await response.json()).status;
+      },
+      { timeout: 12_000 },
+    )
+    .toBe("DEAD_LETTER");
+
+  await page.goto(`/#events/${created.event.eventId}`);
+  await expect(page.getByText("Retry budget exhausted")).toBeVisible();
+  await expect(page.getByText("Automatic retry scheduled")).toHaveCount(2);
+  await expect(page.getByText("Dead letter", { exact: true })).toBeVisible();
 });
 
 test("shows honest event loading and empty states", async ({ page }) => {

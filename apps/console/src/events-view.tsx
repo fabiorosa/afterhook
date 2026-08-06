@@ -47,14 +47,15 @@ const statusLabels: Record<EventListItem["status"], string> = {
 };
 
 function activityContent(activity: EventDetail["activities"][number]) {
+  const attemptNumber = activity.metadata.attemptNumber;
+  const classification = activity.metadata.classification;
   const duration = activity.metadata.durationMilliseconds;
   const responseStatus = activity.metadata.responseStatus;
 
   if (activity.type === "attempt.started") {
     return {
       title: "Delivery started",
-      description:
-        "Attempt 1 was committed before the destination request began.",
+      description: `Attempt ${typeof attemptNumber === "number" ? String(attemptNumber) : ""} was committed before the destination request began.`,
     };
   }
   if (activity.type === "attempt.succeeded") {
@@ -66,7 +67,21 @@ function activityContent(activity: EventDetail["activities"][number]) {
   if (activity.type === "attempt.failed") {
     return {
       title: "Delivery failed",
-      description: `The attempt ended safely${typeof responseStatus === "number" ? ` with HTTP ${String(responseStatus)}` : " without an accepted response"}${typeof duration === "number" ? ` after ${String(duration)} ms` : ""}. No retry was scheduled by this slice.`,
+      description: `The attempt ended${typeof responseStatus === "number" ? ` with HTTP ${String(responseStatus)}` : " without an accepted response"}${typeof duration === "number" ? ` after ${String(duration)} ms` : ""}. The failure was classified as ${classification === "retryable" ? "retryable" : "terminal"}.`,
+    };
+  }
+  if (activity.type === "retry.scheduled") {
+    const scheduledAt = activity.metadata.scheduledAt;
+    return {
+      title: "Automatic retry scheduled",
+      description: `Attempt ${typeof attemptNumber === "number" ? String(attemptNumber) : ""} became eligible at ${typeof scheduledAt === "string" ? formatDate(scheduledAt) : "the recorded retry time"}.`,
+    };
+  }
+  if (activity.type === "event.dead_lettered") {
+    return {
+      title: "Retry budget exhausted",
+      description:
+        "Three automatic attempts failed. The event is now in dead-letter state and no further delivery is scheduled.",
     };
   }
   return {
