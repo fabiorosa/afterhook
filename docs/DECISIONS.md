@@ -197,3 +197,18 @@ The append-only database trigger permits only the narrow transition from
 schedule unchanged. Completed attempts remain immutable. Manual failure does
 not receive another automatic retry budget, which keeps operator actions
 bounded and visible.
+
+## ADR-016: Diagnostics use a narrow safe projection
+
+**Status:** accepted.
+
+WOP-301 does not serialize database rows or the complete event detail into the
+clipboard. PostgreSQL repositories create an explicit attempt projection, and
+the console diagnostic formatter accepts only approved event identity and
+attempt evidence. Extra payload, authorization, response header, body, and URL
+fields are structurally ignored and covered by privacy tests.
+
+This duplicates a small amount of field selection between the API contract and
+formatter, but makes the sharing boundary auditable. Operators get useful
+evidence without relying on manual redaction or copying sensitive console
+content.

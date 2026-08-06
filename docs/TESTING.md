@@ -143,6 +143,15 @@ manual job. Chromium reaches dead-letter after three failures, performs a
 keyboard manual retry that succeeds on attempt four, and rechecks the recovered
 detail at 390 px without exposing credentials.
 
+WOP-301 validates strict combined status and endpoint filters plus safe ordered
+attempt projections. PostgreSQL coverage proves filtering before presentation
+and reads append-only attempt evidence. Unit coverage verifies deterministic
+event and attempt diagnostics and proves extra payload, authorization, header,
+and body-shaped fields are ignored. Chromium combines and clears filters,
+inspects attempt four, validates clipboard success and denial feedback, follows
+manual recovery to its terminal result without reload, and repeats the detail
+at 390 px without overflow or credential exposure.
+
 ## Static gates
 
 - TypeScript strict typecheck.

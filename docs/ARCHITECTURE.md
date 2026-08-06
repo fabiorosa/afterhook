@@ -298,3 +298,18 @@ attempt from `SCHEDULED` to `RUNNING`; it never creates a replacement. A failed
 manual attempt returns the event to `FAILED` and does not restart the automatic
 retry budget. PostgreSQL row locking and the event transition ensure concurrent
 requests reserve one attempt.
+
+## WOP-301 inspection boundary
+
+`GET /v1/events` accepts only the documented status and endpoint UUID filters.
+PostgreSQL applies both filters before grouping attempts and preserves the
+newest-first event order. Pagination and free-text search remain outside this
+slice.
+
+Event detail includes an ordered, narrow attempt projection: identity, number,
+trigger, status, timestamps, duration, HTTP status, error code, and safe error
+message. It deliberately excludes destination URLs, request and response
+bodies, headers, encrypted fields, and payload data. The console builds
+deterministic plain-text diagnostics only from this safe projection. Manual
+recovery polls the authoritative event read until a terminal result so feedback
+does not depend on queue state or a page reload.

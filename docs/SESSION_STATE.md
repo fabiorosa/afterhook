@@ -72,15 +72,25 @@ Updated: 2026-08-06.
   submitting states, safe feedback, and a manual recovery timeline entry.
 - Local Quality passes with 44 unit and HTTP tests, 22 integrations, and 9
   Chromium scenarios for WOP-205.
+- WOP-205 was merged through PR #20. Main Quality run `31071132657` passed.
+- WOP-301 adds combinable status and endpoint filters validated at the API and
+  applied by PostgreSQL while retaining newest-first ordering.
+- Event detail exposes ordered safe attempt evidence without URLs, bodies,
+  headers, payloads, authorization, or encrypted fields.
+- Operators can copy deterministic event or attempt diagnostics with explicit
+  clipboard success and failure feedback. Manual recovery remains visible from
+  queueing through its terminal PostgreSQL state without a reload.
+- Local Quality passes with 48 unit and HTTP tests, 22 integrations, and 10
+  Chromium scenarios for WOP-301.
 
 ## In progress
 
-WOP-205 is published as draft PR #20 from `agent/safe-manual-retry`.
+WOP-301 is on `agent/event-diagnostics` for draft pull request review.
 
 ## Pending work
 
-1. Review and merge WOP-205 after terminal GitHub checks.
-2. Open WOP-301 separately for complete event filters and diagnostics.
+1. Review and merge WOP-301 after terminal GitHub checks.
+2. Open WOP-302 separately for deterministic demo modes and guarded reset.
 
 ## Decisions
 
@@ -103,6 +113,8 @@ WOP-205 is published as draft PR #20 from `agent/safe-manual-retry`.
   to WOP-205.
 - WOP-205 persists a scheduled manual attempt before Redis coordination and
   never grants that attempt another automatic retry budget.
+- WOP-301 builds clipboard diagnostics only from an explicit safe attempt
+  projection and keeps filtering server-authoritative.
 
 ## Dead ends
 
@@ -114,11 +126,11 @@ WOP-205 is published as draft PR #20 from `agent/safe-manual-retry`.
 
 ## Open questions
 
-None for WOP-205.
+None for WOP-301.
 
 ## Next step
 
-Review WOP-205 as the final Phase 2 recovery slice. Do not begin WOP-301 before
+Review WOP-301 as the first Phase 3 release slice. Do not begin WOP-302 before
 its merge gate passes.
 
 ## Pending validation
@@ -128,8 +140,7 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-205 only after terminal GitHub checks. Then open WOP-301 as
-a separate issue and branch for filters, attempt detail, copyable diagnostics,
-and recovery feedback. Do not add accounts, multi-tenancy, or deployment work
-to WOP-205.
+Review and merge WOP-301 only after terminal GitHub checks. Then open WOP-302 as
+a separate issue and branch for deterministic demo modes and guarded reset. Do
+not add OpenAPI, deployment, or release publication work to WOP-301.
 ```
