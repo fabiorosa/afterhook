@@ -1,0 +1,551 @@
+openapi: 3.1.0
+info:
+  title: AfterHook API
+  version: 0.1.0-draft
+  description: |
+    Local-first webhook operations API. Public reads are deliberately narrow:
+    secrets, authorization values, raw payloads, destination URLs in event
+    inspection, headers, and response bodies are never returned.
+servers:
+  - url: http://127.0.0.1:3001
+    description: Local API default
+paths:
+  /health:
+    get:
+      summary: Read safe API and worker availability
+      responses:
+        "200":
+          description: Safe health projection
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Health" }
+  /v1/demo:
+    get:
+      summary: Read whether explicitly enabled demo controls are available
+      responses:
+        "200":
+          {
+            description: Demo capability,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/DemoStatus" } },
+              },
+          }
+  /v1/demo/events:
+    post:
+      summary: Create or reuse a deterministic fictional demo event
+      description: Available only when AFTERHOOK_DEMO_ENABLED=true.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { $ref: "#/components/schemas/DemoEventInput" } },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Existing deterministic event,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/DemoEventReceipt" } },
+              },
+          }
+        "202":
+          {
+            description: New demo event queued,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/DemoEventReceipt" } },
+              },
+          }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "404": { $ref: "#/components/responses/DemoUnavailable" }
+        "503": { $ref: "#/components/responses/QueueUnavailable" }
+  /v1/demo/reset:
+    post:
+      summary: Remove only persistently owned fictional demo records
+      description: Available only when AFTERHOOK_DEMO_ENABLED=true. Ordinary records cannot match the reset boundary.
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { type: object, additionalProperties: false } },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Reset complete,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/DemoReset" } },
+              },
+          }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "404": { $ref: "#/components/responses/DemoUnavailable" }
+  /v1/endpoints:
+    get:
+      summary: List safe endpoint metadata
+      responses:
+        "200":
+          {
+            description: Endpoint list,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: array,
+                        items: { $ref: "#/components/schemas/Endpoint" },
+                      },
+                  },
+              },
+          }
+    post:
+      summary: Create an inbound endpoint and reveal its signing secret once
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      required: [name],
+                      additionalProperties: false,
+                      properties:
+                        { name: { type: string, minLength: 3, maxLength: 80 } },
+                    },
+                },
+            },
+        }
+      responses:
+        "201":
+          {
+            description: Created endpoint and one-time signing secret,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/CreatedEndpoint" } },
+              },
+          }
+        "400": { $ref: "#/components/responses/ValidationError" }
+  /v1/destinations:
+    get:
+      summary: List safe destination metadata
+      responses:
+        "200":
+          {
+            description: Destination list,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: array,
+                        items: { $ref: "#/components/schemas/Destination" },
+                      },
+                  },
+              },
+          }
+    post:
+      summary: Create an HTTP destination
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      required: [name, url],
+                      additionalProperties: false,
+                      properties:
+                        {
+                          name: { type: string, minLength: 3, maxLength: 80 },
+                          url: { type: string, format: uri, maxLength: 2048 },
+                          authorization:
+                            { type: string, writeOnly: true, maxLength: 4096 },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        "201":
+          {
+            description: Created safe destination projection,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Destination" } },
+              },
+          }
+        "400": { $ref: "#/components/responses/ValidationError" }
+  /v1/endpoints/{slug}/events:
+    post:
+      summary: Accept a signed JSON event
+      parameters:
+        - { name: slug, in: path, required: true, schema: { type: string } }
+        - {
+            name: Idempotency-Key,
+            in: header,
+            required: true,
+            schema: { type: string, maxLength: 128 },
+          }
+        - {
+            name: X-AfterHook-Timestamp,
+            in: header,
+            required: true,
+            schema: { type: string, pattern: '^\\d{10}$' },
+          }
+        - {
+            name: X-AfterHook-Signature,
+            in: header,
+            required: true,
+            schema: { type: string, pattern: "^sha256=[a-f0-9]{64}$" },
+          }
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { type: object, additionalProperties: true } },
+            },
+        }
+      responses:
+        "200":
+          {
+            description: Equivalent existing event,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Receipt" } },
+              },
+          }
+        "202":
+          {
+            description: New accepted event,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/Receipt" } },
+              },
+          }
+        "400": { $ref: "#/components/responses/IngestionError" }
+        "401": { $ref: "#/components/responses/IngestionError" }
+        "404": { $ref: "#/components/responses/IngestionError" }
+        "409": { $ref: "#/components/responses/IngestionError" }
+        "413": { $ref: "#/components/responses/IngestionError" }
+        "415": { $ref: "#/components/responses/IngestionError" }
+        "503": { $ref: "#/components/responses/IngestionError" }
+  /v1/events:
+    get:
+      summary: List newest-first event projections
+      parameters:
+        - {
+            name: status,
+            in: query,
+            schema: { $ref: "#/components/schemas/EventStatus" },
+          }
+        - {
+            name: endpointId,
+            in: query,
+            schema: { type: string, format: uuid },
+          }
+      responses:
+        "200":
+          {
+            description: Event list,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: array,
+                        items: { $ref: "#/components/schemas/Event" },
+                      },
+                  },
+              },
+          }
+        "400": { $ref: "#/components/responses/ValidationError" }
+  /v1/events/{eventId}:
+    get:
+      summary: Read a redacted event and append-only attempt evidence
+      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      responses:
+        "200":
+          {
+            description: Event detail,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/EventDetail" } },
+              },
+          }
+        "404": { $ref: "#/components/responses/EventNotFound" }
+  /v1/events/{eventId}/retry:
+    post:
+      summary: Request one safe manual delivery attempt
+      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                { schema: { type: object, additionalProperties: false } },
+            },
+        }
+      responses:
+        "202":
+          {
+            description: Retry reservation committed,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/ManualRetry" } },
+              },
+          }
+        "400": { $ref: "#/components/responses/ValidationError" }
+        "404": { $ref: "#/components/responses/EventNotFound" }
+        "409":
+          {
+            description: Retry unavailable,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/RetryError" } },
+              },
+          }
+        "429":
+          {
+            description: Retry cooldown,
+            content:
+              {
+                application/json:
+                  { schema: { $ref: "#/components/schemas/RetryError" } },
+              },
+          }
+components:
+  parameters:
+    EventId:
+      {
+        name: eventId,
+        in: path,
+        required: true,
+        schema: { type: string, format: uuid },
+      }
+  responses:
+    ValidationError: { description: Invalid request shape }
+    DemoUnavailable: { description: Demo controls are disabled }
+    QueueUnavailable:
+      { description: Record persisted but queue handoff unavailable }
+    IngestionError: { description: Safe ingestion error }
+    EventNotFound: { description: Missing or malformed event identity }
+  schemas:
+    Health:
+      {
+        type: object,
+        required: [status, worker],
+        properties:
+          {
+            status: { enum: [ok, degraded] },
+            worker:
+              {
+                type: object,
+                properties:
+                  {
+                    status: { enum: [healthy, unavailable] },
+                    lastSeenAt: { type: [string, "null"], format: date-time },
+                  },
+              },
+          },
+      }
+    DemoStatus:
+      {
+        type: object,
+        required: [enabled],
+        properties: { enabled: { type: boolean } },
+      }
+    DemoEventInput:
+      {
+        type: object,
+        required: [scenario],
+        additionalProperties: false,
+        properties:
+          { scenario: { enum: [success, timeout, retryable-failure] } },
+      }
+    DemoEventReceipt:
+      {
+        type: object,
+        required: [accepted, eventId, scenario, duplicate],
+        properties:
+          {
+            accepted: { const: true },
+            eventId: { type: string, format: uuid },
+            scenario: { enum: [success, timeout, retryable-failure] },
+            duplicate: { type: boolean },
+          },
+      }
+    DemoReset:
+      {
+        type: object,
+        required: [reset, deletedEvents],
+        properties:
+          {
+            reset: { const: true },
+            deletedEvents: { type: integer, minimum: 0 },
+          },
+      }
+    Endpoint:
+      {
+        type: object,
+        required:
+          [id, name, slug, enabled, secretFingerprint, createdAt, updatedAt],
+        properties:
+          {
+            id: { type: string, format: uuid },
+            name: { type: string },
+            slug: { type: string },
+            enabled: { type: boolean },
+            secretFingerprint: { type: string },
+            createdAt: { type: string, format: date-time },
+            updatedAt: { type: string, format: date-time },
+          },
+      }
+    CreatedEndpoint:
+      {
+        allOf:
+          [
+            { $ref: "#/components/schemas/Endpoint" },
+            {
+              type: object,
+              required: [signingSecret],
+              properties: { signingSecret: { type: string, writeOnly: true } },
+            },
+          ],
+      }
+    Destination:
+      {
+        type: object,
+        required:
+          [id, name, url, enabled, hasAuthorization, createdAt, updatedAt],
+        properties:
+          {
+            id: { type: string, format: uuid },
+            name: { type: string },
+            url: { type: string, format: uri },
+            enabled: { type: boolean },
+            hasAuthorization: { type: boolean },
+            createdAt: { type: string, format: date-time },
+            updatedAt: { type: string, format: date-time },
+          },
+      }
+    Receipt:
+      {
+        type: object,
+        required:
+          [
+            accepted,
+            eventId,
+            endpointId,
+            idempotencyKey,
+            payloadDigest,
+            duplicate,
+          ],
+        properties:
+          {
+            accepted: { const: true },
+            eventId: { type: string, format: uuid },
+            endpointId: { type: string, format: uuid },
+            idempotencyKey: { type: string },
+            payloadDigest: { type: string },
+            duplicate: { type: boolean },
+          },
+      }
+    EventStatus:
+      { enum: [RECEIVED, QUEUED, PROCESSING, DELIVERED, FAILED, DEAD_LETTER] }
+    Event:
+      {
+        type: object,
+        required:
+          [id, endpoint, idempotencyKey, status, receivedAt, attemptCount],
+        properties:
+          {
+            id: { type: string, format: uuid },
+            endpoint: { $ref: "#/components/schemas/Endpoint" },
+            idempotencyKey: { type: string },
+            status: { $ref: "#/components/schemas/EventStatus" },
+            receivedAt: { type: string, format: date-time },
+            attemptCount: { type: integer, minimum: 0 },
+          },
+      }
+    EventDetail:
+      {
+        allOf:
+          [
+            { $ref: "#/components/schemas/Event" },
+            {
+              type: object,
+              required:
+                [
+                  payloadDigest,
+                  payloadRedacted,
+                  activities,
+                  attempts,
+                  manualRetry,
+                ],
+              properties:
+                {
+                  payloadDigest: { type: string },
+                  payloadRedacted: { type: object },
+                  activities: { type: array },
+                  attempts: { type: array },
+                  manualRetry: { type: object },
+                },
+            },
+          ],
+      }
+    ManualRetry:
+      {
+        type: object,
+        required: [accepted, eventId, attemptNumber, status],
+        properties:
+          {
+            accepted: { const: true },
+            eventId: { type: string, format: uuid },
+            attemptNumber: { type: integer, minimum: 1 },
+            status: { const: QUEUED },
+          },
+      }
+    RetryError:
+      {
+        type: object,
+        required: [error, message],
+        properties:
+          {
+            error:
+              {
+                enum: [EVENT_NOT_FOUND, RETRY_NOT_ALLOWED, RETRY_RATE_LIMITED],
+              },
+            message: { type: string },
+          },
+      }
