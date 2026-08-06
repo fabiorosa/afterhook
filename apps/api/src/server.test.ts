@@ -314,6 +314,63 @@ describe("ingestion HTTP contract", () => {
         "The idempotency key is already associated with another payload.",
     });
   });
+
+  it("persists before queueing and safely retries a failed handoff", async () => {
+    const order: string[] = [];
+    let persistenceCalls = 0;
+    let queueCalls = 0;
+    const queueApp = buildServer(
+      {
+        ...createRepository(),
+        persistEvent: () => {
+          persistenceCalls += 1;
+          order.push("persist");
+          return Promise.resolve({
+            outcome: persistenceCalls === 1 ? "created" : "existing",
+            eventId,
+          });
+        },
+      },
+      {
+        now: () => webhookNow,
+        eventQueue: {
+          enqueue: () => {
+            queueCalls += 1;
+            order.push("queue");
+            return queueCalls === 1
+              ? Promise.reject(new Error("redis contains private detail"))
+              : Promise.resolve();
+          },
+          readWorkerHeartbeat: () => Promise.resolve(null),
+          close: () => Promise.resolve(),
+        },
+      },
+    );
+
+    const first = await queueApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+    const retried = await queueApp.inject({
+      method: "POST",
+      url: `/v1/endpoints/${endpoint.slug}/events`,
+      headers: validHeaders,
+      payload: rawBody,
+    });
+
+    expect(order).toEqual(["persist", "queue", "persist", "queue"]);
+    expect(first.statusCode).toBe(503);
+    expect(first.json()).toEqual({
+      error: "QUEUE_UNAVAILABLE",
+      message:
+        "The event was stored, but queue handoff is temporarily unavailable. Retry with the same idempotency key.",
+    });
+    expect(first.body).not.toContain("private detail");
+    expect(retried.statusCode).toBe(200);
+    expect(retried.json()).toMatchObject({ eventId, duplicate: true });
+  });
 });
 
 describe("event inspection HTTP contract", () => {
@@ -350,5 +407,47 @@ describe("event inspection HTTP contract", () => {
       error: "EVENT_NOT_FOUND",
       message: "The event could not be found.",
     });
+  });
+});
+
+describe("system health HTTP contract", () => {
+  it("reports a healthy worker without exposing infrastructure details", async () => {
+    const app = buildServer(createRepository(), {
+      eventQueue: {
+        enqueue: () => Promise.resolve(),
+        readWorkerHeartbeat: () =>
+          Promise.resolve({
+            workerId: "private-worker-host",
+            recordedAt: timestamp,
+          }),
+        close: () => Promise.resolve(),
+      },
+    });
+    const response = await app.inject({ method: "GET", url: "/health" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      status: "ok",
+      worker: { status: "healthy", lastSeenAt: timestamp },
+    });
+    expect(response.body).not.toContain("private-worker-host");
+  });
+
+  it("degrades safely when heartbeat storage is unavailable", async () => {
+    const app = buildServer(createRepository(), {
+      eventQueue: {
+        enqueue: () => Promise.resolve(),
+        readWorkerHeartbeat: () => Promise.reject(new Error("redis private")),
+        close: () => Promise.resolve(),
+      },
+    });
+    const response = await app.inject({ method: "GET", url: "/health" });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      status: "degraded",
+      worker: { status: "unavailable", lastSeenAt: null },
+    });
+    expect(response.body).not.toContain("redis private");
   });
 });

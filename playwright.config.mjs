@@ -1,10 +1,9 @@
 import { defineConfig } from "@playwright/test";
 
 const databaseUrl = process.env.TEST_DATABASE_URL ?? process.env.DATABASE_URL;
-if (databaseUrl === undefined) {
-  throw new Error(
-    "TEST_DATABASE_URL or DATABASE_URL is required for browser tests.",
-  );
+const redisUrl = process.env.TEST_REDIS_URL ?? process.env.REDIS_URL;
+if (databaseUrl === undefined || redisUrl === undefined) {
+  throw new Error("Database and Redis URLs are required for browser tests.");
 }
 
 export default defineConfig({
@@ -16,6 +15,7 @@ export default defineConfig({
       port: 3101,
       env: {
         DATABASE_URL: databaseUrl,
+        REDIS_URL: redisUrl,
         PORT: "3101",
         SECRET_ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
       },

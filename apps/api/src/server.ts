@@ -10,6 +10,7 @@ import {
   eventListItemSchema,
   ingestionErrorSchema,
   ingestionReceiptSchema,
+  systemHealthSchema,
   webhookHeadersSchema,
   webhookPayloadSchema,
 } from "@afterhook/contracts";
@@ -20,6 +21,7 @@ import {
   redactWebhookPayload,
   verifyWebhookSignature,
 } from "@afterhook/domain";
+import type { EventQueue } from "@afterhook/orchestration";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -39,6 +41,7 @@ declare module "fastify" {
 
 type ServerOptions = Readonly<{
   now?: () => Date;
+  eventQueue?: EventQueue;
 }>;
 
 function ingestionError(
@@ -48,6 +51,7 @@ function ingestionError(
     | "SIGNATURE_REJECTED"
     | "PAYLOAD_TOO_LARGE"
     | "IDEMPOTENCY_CONFLICT"
+    | "QUEUE_UNAVAILABLE"
     | "INTERNAL_ERROR",
   message: string,
 ) {
@@ -91,6 +95,11 @@ export function buildServer(
 ): FastifyInstance {
   const app = Fastify({ logger: false });
   const now = options.now ?? (() => new Date());
+  const eventQueue = options.eventQueue ?? {
+    enqueue: () => Promise.resolve(),
+    readWorkerHeartbeat: () => Promise.resolve(null),
+    close: () => Promise.resolve(),
+  };
 
   app.removeContentTypeParser("application/json");
   app.addContentTypeParser(
@@ -141,7 +150,23 @@ export function buildServer(
       );
   });
 
-  app.get("/health", () => ({ status: "ok" }));
+  app.get("/health", async () => {
+    try {
+      const heartbeat = await eventQueue.readWorkerHeartbeat();
+      return systemHealthSchema.parse({
+        status: heartbeat === null ? "degraded" : "ok",
+        worker: {
+          status: heartbeat === null ? "unavailable" : "healthy",
+          lastSeenAt: heartbeat?.recordedAt ?? null,
+        },
+      });
+    } catch {
+      return systemHealthSchema.parse({
+        status: "degraded",
+        worker: { status: "unavailable", lastSeenAt: null },
+      });
+    }
+  });
 
   app.get("/v1/endpoints", async () =>
     endpointListSchema.parse(await repository.listEndpoints()),
@@ -287,6 +312,19 @@ export function buildServer(
           ingestionError(
             "IDEMPOTENCY_CONFLICT",
             "The idempotency key is already associated with another payload.",
+          ),
+        );
+    }
+
+    try {
+      await eventQueue.enqueue(persisted.eventId);
+    } catch {
+      return reply
+        .code(503)
+        .send(
+          ingestionError(
+            "QUEUE_UNAVAILABLE",
+            "The event was stored, but queue handoff is temporarily unavailable. Retry with the same idempotency key.",
           ),
         );
     }
