@@ -81,6 +81,14 @@ an expiring Redis heartbeat but does not consume delivery jobs until WOP-202.
 Owns the bounded HTTP call, destination authentication, response
 classification, duration measurement, and safe metadata capture.
 
+WOP-202 implements this transport independently of BullMQ consumption. It
+allows only credential-free HTTP/HTTPS URLs, resolves and checks every address,
+pins the request to an approved address, never follows redirects, applies
+bounded header/body timeouts, and discards response bodies with a 64 KiB limit.
+Private networks are blocked unless an explicit local-fixture option is passed;
+link-local and metadata ranges remain blocked. Results contain only outcome,
+HTTP status when available, and duration.
+
 ### Domain
 
 Owns state machines, retry eligibility, idempotency outcomes, error codes, and

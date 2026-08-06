@@ -34,7 +34,7 @@ loading, error, focus, and mobile states are complete.
 | ID      | Ticket                                                                          | Status |
 | ------- | ------------------------------------------------------------------------------- | ------ |
 | WOP-201 | Add Redis and BullMQ with identifier-only jobs and worker heartbeat. GitHub #11 | done   |
-| WOP-202 | Deliver to the local destination with timeout and SSRF boundaries               | todo   |
+| WOP-202 | Deliver to the local destination with timeout and SSRF boundaries. GitHub #13   | done   |
 | WOP-203 | Record append-only attempts and update the human-readable timeline              | todo   |
 | WOP-204 | Add retry classification, bounded automatic backoff, and dead-letter state      | todo   |
 | WOP-205 | Add safe manual retry with concurrency protection                               | todo   |

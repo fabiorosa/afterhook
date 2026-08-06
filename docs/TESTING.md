@@ -38,6 +38,11 @@ WOP-201 validates identifier-only delivery jobs, strict heartbeat records,
 safe public health projections, persistence-before-queue ordering, temporary
 queue failures, and same-key queue retry behavior.
 
+WOP-202 validates URL credentials and protocols, public and private IP ranges,
+local-only overrides, DNS pinning, authorization forwarding without result
+leakage, success, timeout, redirect refusal, and bounded response discarding.
+Integration coverage uses the real local Fastify destination and Undici stack.
+
 ## PostgreSQL integration tests
 
 - same key and same digest returns the existing event;

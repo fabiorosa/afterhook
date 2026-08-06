@@ -33,18 +33,24 @@ Updated: 2026-08-05.
   equivalent retry can enqueue the same job without duplicating the event.
 - The worker publishes an expiring heartbeat. `/health` exposes only healthy or
   unavailable status plus the last observed timestamp.
+- WOP-201 was merged through PR #12. Main Quality run `31060557739` passed.
+- WOP-202 adds an independent Undici delivery transport and deterministic local
+  Fastify destination. DNS is validated and pinned, redirects are not followed,
+  and timeouts plus response discarding are bounded.
+- Delivery results expose only outcome, HTTP status when present, and duration.
+  Authorization, response bodies, socket errors, and addresses remain private.
 - Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
   redaction, lint, typecheck, migration, build, and browser gates pass.
 
 ## In progress
 
-WOP-201 is on `agent/queue-handoff` for draft pull request review.
+WOP-202 is on `agent/bounded-delivery` for draft pull request review.
 
 ## Pending work
 
-1. Review and merge WOP-201 after terminal GitHub checks.
-2. Open WOP-202 separately for destination assignment, SSRF boundaries, and
-   bounded HTTP delivery.
+1. Review and merge WOP-202 after terminal GitHub checks.
+2. Open WOP-203 separately to connect queued events to append-only attempts and
+   the tested delivery transport.
 
 ## Decisions
 
@@ -59,6 +65,8 @@ WOP-201 is on `agent/queue-handoff` for draft pull request review.
 - BullMQ job data contains only the event UUID and uses it as the job ID.
 - The WOP-201 worker publishes heartbeat only. It does not consume delivery
   jobs or transition event state.
+- WOP-202 does not consume BullMQ jobs. WOP-203 must persist an attempt before
+  network I/O and complete it after the delivery result.
 
 ## Dead ends
 
@@ -70,12 +78,12 @@ WOP-201 is on `agent/queue-handoff` for draft pull request review.
 
 ## Open questions
 
-None for WOP-201.
+None for WOP-202.
 
 ## Next step
 
-Review WOP-201 as one queue handoff slice. Do not begin WOP-202 before its merge
-gate passes.
+Review WOP-202 as one bounded transport slice. Do not begin WOP-203 before its
+merge gate passes.
 
 ## Pending validation
 
@@ -84,7 +92,7 @@ Push and pull-request Quality checks must reach a terminal green state.
 ## Continuation prompt
 
 ```text
-Review and merge WOP-201 only after terminal GitHub checks. Then open WOP-202 as
-a separate issue and branch for bounded HTTP delivery. Do not add attempts,
-retry policy, dead-letter behavior, accounts, or deploy to WOP-201.
+Review and merge WOP-202 only after terminal GitHub checks. Then open WOP-203 as
+a separate issue and branch to persist attempts around queue consumption. Do
+not add retries, backoff, dead-letter behavior, accounts, or deploy to WOP-202.
 ```
