@@ -49,12 +49,14 @@ Updated: 2026-08-05.
   jobs cannot create another attempt.
 - Event list counts and detail timelines expose delivery start, success or
   failure, response status when present, and duration without secret values.
+- Local Quality passes with 34 unit and HTTP tests, 16 integrations, and 6
+  Chromium scenarios.
 - Unit, HTTP contract, real PostgreSQL concurrency, conflict, atomic rollback,
   redaction, lint, typecheck, migration, build, and browser gates pass.
 
 ## In progress
 
-WOP-203 is on `agent/delivery-attempts` for draft pull request review.
+WOP-203 is on `agent/delivery-attempts` in draft PR #16.
 
 ## Pending work
 
