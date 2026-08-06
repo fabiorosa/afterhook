@@ -27,6 +27,10 @@ type EventDetail = EventListItem &
       metadata: Record<string, unknown>;
       createdAt: string;
     }>[];
+    manualRetry: Readonly<{
+      allowed: boolean;
+      reason: "AVAILABLE" | "DELIVERY_ACTIVE" | "ALREADY_DELIVERED";
+    }>;
   }>;
 
 function formatDate(value: string): string {
@@ -82,6 +86,12 @@ function activityContent(activity: EventDetail["activities"][number]) {
       title: "Retry budget exhausted",
       description:
         "Three automatic attempts failed. The event is now in dead-letter state and no further delivery is scheduled.",
+    };
+  }
+  if (activity.type === "retry.manual_requested") {
+    return {
+      title: "Manual recovery requested",
+      description: `Attempt ${typeof attemptNumber === "number" ? String(attemptNumber) : ""} was reserved in PostgreSQL before queue handoff.`,
     };
   }
   return {
@@ -206,6 +216,11 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
   const [event, setEvent] = useState<EventDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryFeedback, setRetryFeedback] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
 
   async function loadEvent() {
     setLoading(true);
@@ -224,6 +239,32 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
   useEffect(() => {
     void loadEvent();
   }, [eventId]);
+
+  async function retryEvent() {
+    setRetrying(true);
+    setRetryFeedback(null);
+    try {
+      const result = await request<{ attemptNumber: number }>(
+        `/v1/events/${eventId}/retry`,
+        { method: "POST", body: "{}" },
+      );
+      setRetryFeedback({
+        kind: "success",
+        message: `Manual attempt ${String(result.attemptNumber)} was safely queued.`,
+      });
+      await loadEvent();
+    } catch (caught) {
+      setRetryFeedback({
+        kind: "error",
+        message:
+          caught instanceof Error
+            ? caught.message
+            : "Manual retry could not be requested.",
+      });
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   if (loading) return <EventsLoading detail />;
   if (error !== null || event === null) {
@@ -283,6 +324,36 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
               <dd>{event.payloadDigest}</dd>
             </div>
           </dl>
+          <section className="manual-recovery" aria-labelledby="recovery-title">
+            <div>
+              <h2 id="recovery-title">Manual recovery</h2>
+              <p>
+                {event.manualRetry.reason === "AVAILABLE"
+                  ? "Create one new attempt without changing the existing delivery history."
+                  : event.manualRetry.reason === "ALREADY_DELIVERED"
+                    ? "No retry is needed because the destination accepted this event."
+                    : "Manual retry stays unavailable while delivery is queued or running."}
+              </p>
+            </div>
+            <button
+              className={
+                !event.manualRetry.allowed ? "unavailable-action" : undefined
+              }
+              disabled={!event.manualRetry.allowed || retrying}
+              type="button"
+              onClick={() => void retryEvent()}
+            >
+              {retrying ? "Requesting retry…" : "Retry delivery"}
+            </button>
+          </section>
+          {retryFeedback !== null ? (
+            <p
+              className={`recovery-feedback recovery-${retryFeedback.kind}`}
+              role={retryFeedback.kind === "error" ? "alert" : "status"}
+            >
+              {retryFeedback.message}
+            </p>
+          ) : null}
           <div className="payload-heading">
             <h2>Redacted payload</h2>
             <p>Credential-shaped fields are removed before storage.</p>

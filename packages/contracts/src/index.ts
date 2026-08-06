@@ -181,10 +181,28 @@ export const eventDetailSchema = eventListItemSchema.extend({
   payloadDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   payloadRedacted: z.record(z.string(), z.unknown()),
   activities: z.array(eventActivitySchema),
+  manualRetry: z.object({
+    allowed: z.boolean(),
+    reason: z.enum(["AVAILABLE", "DELIVERY_ACTIVE", "ALREADY_DELIVERED"]),
+  }),
 });
 
 export const eventInspectionErrorSchema = z.object({
   error: z.literal("EVENT_NOT_FOUND"),
+  message: z.string(),
+});
+
+export const manualRetryResponseSchema = z.object({
+  accepted: z.literal(true),
+  eventId: z.uuid(),
+  attemptNumber: z.number().int().positive(),
+  status: z.literal("QUEUED"),
+});
+
+export const manualRetryInputSchema = z.object({}).strict();
+
+export const manualRetryErrorSchema = z.object({
+  error: z.enum(["EVENT_NOT_FOUND", "RETRY_NOT_ALLOWED", "RETRY_RATE_LIMITED"]),
   message: z.string(),
 });
 
@@ -206,3 +224,4 @@ export type WorkerHeartbeat = z.infer<typeof workerHeartbeatSchema>;
 export type SystemHealth = z.infer<typeof systemHealthSchema>;
 export type EventListItem = z.infer<typeof eventListItemSchema>;
 export type EventDetail = z.infer<typeof eventDetailSchema>;
+export type ManualRetryResponse = z.infer<typeof manualRetryResponseSchema>;

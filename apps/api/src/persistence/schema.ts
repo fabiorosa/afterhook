@@ -84,7 +84,7 @@ export const deliveryAttempts = pgTable(
     trigger: text("trigger").notNull(),
     status: text("status").notNull(),
     scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
-    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }),
     finishedAt: timestamp("finished_at", { withTimezone: true }),
     durationMs: integer("duration_ms"),
     responseStatus: integer("response_status"),

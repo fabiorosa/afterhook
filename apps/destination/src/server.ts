@@ -31,6 +31,12 @@ export function buildLocalDestination(
     deliveriesByEvent.set(eventId, deliveryNumber);
     return reply.code(deliveryNumber < 3 ? 503 : 204).send();
   });
+  app.post("/manual-recovery", (request, reply) => {
+    const eventId = String(request.headers["x-afterhook-event-id"] ?? "");
+    const deliveryNumber = (deliveriesByEvent.get(eventId) ?? 0) + 1;
+    deliveriesByEvent.set(eventId, deliveryNumber);
+    return reply.code(deliveryNumber < 4 ? 503 : 204).send();
+  });
   app.post("/always-fail", (_request, reply) => reply.code(503).send());
   app.post("/terminal", (_request, reply) => reply.code(400).send());
 

@@ -12,9 +12,11 @@ import {
   createEndpointSlug,
   createSigningSecret,
   fingerprintSecret,
+  getManualRetryEligibility,
+  manualRetryCooldownMilliseconds,
   type SecretCipher,
 } from "@afterhook/domain";
-import { and, asc, count, desc, eq } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, max } from "drizzle-orm";
 import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 
@@ -39,6 +41,16 @@ export type PersistEventOutcome =
   | Readonly<{ outcome: "created" | "existing"; eventId: string }>
   | Readonly<{ outcome: "conflict" }>;
 
+export type ManualRetryOutcome =
+  | Readonly<{
+      outcome: "accepted";
+      eventId: string;
+      attemptNumber: number;
+    }>
+  | Readonly<{ outcome: "not_found" }>
+  | Readonly<{ outcome: "not_allowed" }>
+  | Readonly<{ outcome: "rate_limited" }>;
+
 export class DestinationUnavailableError extends Error {
   constructor() {
     super("An enabled destination is required.");
@@ -58,6 +70,10 @@ export type SetupRepository = Readonly<{
   persistEvent: (input: PersistEventInput) => Promise<PersistEventOutcome>;
   listEvents: () => Promise<EventListItem[]>;
   findEventDetail: (eventId: string) => Promise<EventDetail | null>;
+  requestManualRetry: (
+    eventId: string,
+    requestedAt: Date,
+  ) => Promise<ManualRetryOutcome>;
 }>;
 
 export type IngestionEndpoint = Readonly<{
@@ -319,7 +335,96 @@ export function createSetupRepository(
           metadata: activity.metadata as Record<string, unknown>,
           createdAt: toIsoDate(activity.createdAt),
         })),
+        manualRetry: getManualRetryEligibility(
+          eventStatusSchema.parse(row.status),
+        ),
       };
+    },
+    async requestManualRetry(eventId, requestedAt) {
+      return database.transaction(async (transaction) => {
+        const [event] = await transaction
+          .select({ id: events.id, status: events.status })
+          .from(events)
+          .where(eq(events.id, eventId))
+          .for("update")
+          .limit(1);
+        if (event === undefined) return { outcome: "not_found" } as const;
+
+        const eligibility = getManualRetryEligibility(
+          eventStatusSchema.parse(event.status),
+        );
+        if (!eligibility.allowed) return { outcome: "not_allowed" } as const;
+
+        const [activeAttempts] = await transaction
+          .select({ count: count(deliveryAttempts.id) })
+          .from(deliveryAttempts)
+          .where(
+            and(
+              eq(deliveryAttempts.eventId, eventId),
+              inArray(deliveryAttempts.status, ["SCHEDULED", "RUNNING"]),
+            ),
+          );
+        if ((activeAttempts?.count ?? 0) > 0) {
+          return { outcome: "not_allowed" } as const;
+        }
+
+        const [lastManual] = await transaction
+          .select({ createdAt: max(activityEvents.createdAt) })
+          .from(activityEvents)
+          .where(
+            and(
+              eq(activityEvents.eventId, eventId),
+              eq(activityEvents.type, "retry.manual_requested"),
+            ),
+          );
+        if (
+          lastManual?.createdAt !== null &&
+          lastManual?.createdAt !== undefined &&
+          requestedAt.getTime() - lastManual.createdAt.getTime() <
+            manualRetryCooldownMilliseconds
+        ) {
+          return { outcome: "rate_limited" } as const;
+        }
+
+        const [lastAttempt] = await transaction
+          .select({ attemptNumber: max(deliveryAttempts.attemptNumber) })
+          .from(deliveryAttempts)
+          .where(eq(deliveryAttempts.eventId, eventId));
+        const attemptNumber = (lastAttempt?.attemptNumber ?? 0) + 1;
+        const [attempt] = await transaction
+          .insert(deliveryAttempts)
+          .values({
+            eventId,
+            attemptNumber,
+            trigger: "MANUAL",
+            status: "SCHEDULED",
+            scheduledAt: requestedAt,
+            startedAt: null,
+          })
+          .returning({ id: deliveryAttempts.id });
+        if (attempt === undefined) {
+          throw new Error("Manual retry attempt was not reserved.");
+        }
+
+        await transaction
+          .update(events)
+          .set({
+            status: "QUEUED",
+            completedAt: null,
+            nextAttemptAt: requestedAt,
+            updatedAt: requestedAt,
+          })
+          .where(eq(events.id, eventId));
+        await transaction.insert(activityEvents).values({
+          eventId,
+          attemptId: attempt.id,
+          type: "retry.manual_requested",
+          metadata: { attemptNumber, trigger: "MANUAL" },
+          createdAt: requestedAt,
+        });
+
+        return { outcome: "accepted", eventId, attemptNumber } as const;
+      });
     },
     async createDestination(input) {
       const [row] = await database

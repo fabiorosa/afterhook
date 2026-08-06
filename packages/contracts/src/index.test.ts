@@ -8,6 +8,8 @@ import {
   deliveryJobSchema,
   idempotencyKeySchema,
   ingestionReceiptSchema,
+  manualRetryErrorSchema,
+  manualRetryResponseSchema,
   systemHealthSchema,
   workerHeartbeatSchema,
   webhookHeadersSchema,
@@ -154,8 +156,26 @@ describe("event inspection contracts", () => {
             createdAt: "2026-08-05T12:00:00.000Z",
           },
         ],
+        manualRetry: { allowed: false, reason: "DELIVERY_ACTIVE" },
       }),
     ).toMatchObject({ payloadRedacted: { token: "[REDACTED]" } });
+  });
+
+  it("validates narrow manual retry outcomes", () => {
+    expect(
+      manualRetryResponseSchema.parse({
+        accepted: true,
+        eventId: event.id,
+        attemptNumber: 4,
+        status: "QUEUED",
+      }),
+    ).toMatchObject({ attemptNumber: 4 });
+    expect(
+      manualRetryErrorSchema.parse({
+        error: "RETRY_NOT_ALLOWED",
+        message: "Manual retry is unavailable.",
+      }),
+    ).toMatchObject({ error: "RETRY_NOT_ALLOWED" });
   });
 
   it("rejects unsafe event states and malformed attempt counts", () => {
