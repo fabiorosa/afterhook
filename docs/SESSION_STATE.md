@@ -101,12 +101,13 @@ Updated: 2026-08-06.
 
 ## In progress
 
-WOP-303 is implemented on `agent/api-operations-docs` for GitHub issue #25.
+WOP-303 is published as draft PR #26 from `agent/api-operations-docs` for
+GitHub issue #25.
 
 ## Pending work
 
-1. Publish WOP-303 as a draft pull request after terminal local validation.
-2. Review and merge WOP-303 only after terminal GitHub checks.
+1. Review and merge WOP-303 only after terminal GitHub checks.
+2. Open WOP-304 separately after the WOP-303 merge gate.
 
 ## Decisions
 
