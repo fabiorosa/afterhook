@@ -148,3 +148,22 @@ The local destination override is explicit and still rejects link-local and
 metadata ranges. Queue consumption remains deferred until WOP-203 can create
 and complete an append-only PostgreSQL attempt around the network call. This
 avoids acknowledging delivery work that has no authoritative execution record.
+
+## ADR-013: Transactional attempt claim around network delivery
+
+**Status:** accepted.
+
+WOP-203 stores exact authenticated JSON in the existing versioned AES-256-GCM
+envelope because the worker cannot deliver the redacted inspection copy. It
+associates each new event with the newest enabled destination while the
+single-workspace MVP intentionally supports one active delivery target.
+
+The worker claims an event through a PostgreSQL transaction that creates a
+`RUNNING` attempt and changes the event to `PROCESSING` before HTTP begins. A
+conditional completion changes that attempt and event together, then appends
+safe activity metadata. A database trigger prevents later updates to a
+completed attempt. Duplicate BullMQ jobs become no-ops instead of executions.
+
+This slice records failures as terminal evidence but does not decide retry
+eligibility or enqueue another job. WOP-204 owns retry classification, bounded
+backoff, and dead-letter behavior.
