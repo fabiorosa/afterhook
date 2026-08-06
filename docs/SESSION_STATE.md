@@ -75,7 +75,7 @@ Updated: 2026-08-06.
 
 ## In progress
 
-WOP-205 is on `agent/safe-manual-retry` for draft pull request review.
+WOP-205 is published as draft PR #20 from `agent/safe-manual-retry`.
 
 ## Pending work
 
