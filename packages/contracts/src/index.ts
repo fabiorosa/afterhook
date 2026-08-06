@@ -155,6 +155,36 @@ export const eventStatusSchema = z.enum([
   "DEAD_LETTER",
 ]);
 
+export const eventFilterSchema = z
+  .object({
+    status: eventStatusSchema.optional(),
+    endpointId: z.uuid().optional(),
+  })
+  .strict();
+
+export const attemptStatusSchema = z.enum([
+  "SCHEDULED",
+  "RUNNING",
+  "SUCCEEDED",
+  "RETRYABLE_FAILURE",
+  "TERMINAL_FAILURE",
+  "TIMED_OUT",
+]);
+
+export const deliveryAttemptSchema = z.object({
+  id: z.uuid(),
+  attemptNumber: z.number().int().positive(),
+  trigger: z.enum(["AUTOMATIC", "MANUAL"]),
+  status: attemptStatusSchema,
+  scheduledAt: z.iso.datetime(),
+  startedAt: z.iso.datetime().nullable(),
+  finishedAt: z.iso.datetime().nullable(),
+  durationMilliseconds: z.number().int().nonnegative().nullable(),
+  responseStatus: z.number().int().min(100).max(599).nullable(),
+  errorCode: z.string().min(1).max(80).nullable(),
+  safeErrorMessage: z.string().min(1).max(240).nullable(),
+});
+
 export const eventEndpointSchema = z.object({
   id: z.uuid(),
   name: endpointNameSchema,
@@ -181,6 +211,7 @@ export const eventDetailSchema = eventListItemSchema.extend({
   payloadDigest: z.string().regex(/^sha256:[a-f0-9]{64}$/),
   payloadRedacted: z.record(z.string(), z.unknown()),
   activities: z.array(eventActivitySchema),
+  attempts: z.array(deliveryAttemptSchema),
   manualRetry: z.object({
     allowed: z.boolean(),
     reason: z.enum(["AVAILABLE", "DELIVERY_ACTIVE", "ALREADY_DELIVERED"]),
@@ -224,4 +255,6 @@ export type WorkerHeartbeat = z.infer<typeof workerHeartbeatSchema>;
 export type SystemHealth = z.infer<typeof systemHealthSchema>;
 export type EventListItem = z.infer<typeof eventListItemSchema>;
 export type EventDetail = z.infer<typeof eventDetailSchema>;
+export type EventFilter = z.infer<typeof eventFilterSchema>;
+export type DeliveryAttempt = z.infer<typeof deliveryAttemptSchema>;
 export type ManualRetryResponse = z.infer<typeof manualRetryResponseSchema>;

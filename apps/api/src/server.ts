@@ -6,6 +6,7 @@ import {
   endpointResponseSchema,
   endpointSlugSchema,
   eventDetailSchema,
+  eventFilterSchema,
   eventInspectionErrorSchema,
   eventListItemSchema,
   ingestionErrorSchema,
@@ -183,9 +184,11 @@ export function buildServer(
   app.get("/v1/destinations", async () =>
     destinationListSchema.parse(await repository.listDestinations()),
   );
-  app.get("/v1/events", async () =>
-    eventListSchema.parse(await repository.listEvents()),
-  );
+  app.get("/v1/events", async (request, reply) => {
+    const filters = parseOrReply(eventFilterSchema, request.query, reply);
+    if (filters === undefined) return;
+    return eventListSchema.parse(await repository.listEvents(filters));
+  });
   app.get("/v1/events/:eventId", async (request, reply) => {
     const params = eventParamsSchema.safeParse(request.params);
     const event = params.success

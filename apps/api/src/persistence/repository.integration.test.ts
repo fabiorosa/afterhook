@@ -285,9 +285,21 @@ describe("event persistence", () => {
       receivedAt: new Date("2026-08-05T12:01:00.000Z"),
     });
 
-    const listed = await repository.listEvents();
     const firstId = first.outcome === "conflict" ? "" : first.eventId;
     const secondId = second.outcome === "conflict" ? "" : second.eventId;
+    await client`UPDATE events SET status = 'DELIVERED' WHERE id = ${firstId}`;
+    await client`UPDATE events SET status = 'FAILED' WHERE id = ${secondId}`;
+    await client`
+      INSERT INTO delivery_attempts (
+        event_id, attempt_number, trigger, status, scheduled_at, started_at,
+        finished_at, duration_ms, response_status
+      ) VALUES (
+        ${firstId}, 1, 'AUTOMATIC', 'SUCCEEDED',
+        '2026-08-05T12:00:01.000Z', '2026-08-05T12:00:01.000Z',
+        '2026-08-05T12:00:02.000Z', 820, 204
+      )
+    `;
+    const listed = await repository.listEvents();
     const detail = await repository.findEventDetail(firstId);
 
     expect(listed.map((event) => event.id)).toEqual([secondId, firstId]);
@@ -299,7 +311,27 @@ describe("event persistence", () => {
       id: firstId,
       payloadRedacted: { event: "invoice.paid", token: "[REDACTED]" },
       activities: [{ type: "event.received" }],
+      attempts: [
+        {
+          attemptNumber: 1,
+          trigger: "AUTOMATIC",
+          status: "SUCCEEDED",
+          durationMilliseconds: 820,
+          responseStatus: 204,
+        },
+      ],
     });
+    await expect(repository.listEvents({ status: "FAILED" })).resolves.toEqual([
+      expect.objectContaining({ id: secondId, status: "FAILED" }),
+    ]);
+    await expect(
+      repository.listEvents({
+        endpointId: input.endpointId,
+        status: "DELIVERED",
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({ id: firstId, status: "DELIVERED" }),
+    ]);
     expect(JSON.stringify(detail)).not.toContain("secret_encrypted");
     await expect(
       repository.findEventDetail("39a92b9a-b6f5-4ea3-a06f-3f339669cbe2"),

@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 
 import { request } from "./api.js";
+import { AttemptHistory } from "./attempt-history.js";
+import {
+  buildEventDiagnostics,
+  type SafeDiagnosticAttempt,
+} from "./diagnostics.js";
 
 type EventListItem = Readonly<{
   id: string;
@@ -27,6 +32,7 @@ type EventDetail = EventListItem &
       metadata: Record<string, unknown>;
       createdAt: string;
     }>[];
+    attempts: readonly SafeDiagnosticAttempt[];
     manualRetry: Readonly<{
       allowed: boolean;
       reason: "AVAILABLE" | "DELIVERY_ACTIVE" | "ALREADY_DELIVERED";
@@ -120,12 +126,23 @@ function EventList() {
   const [events, setEvents] = useState<EventListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [endpoints, setEndpoints] = useState<
+    readonly Readonly<{ id: string; name: string }>[]
+  >([]);
+  const [statusFilter, setStatusFilter] = useState<
+    EventListItem["status"] | ""
+  >("");
+  const [endpointFilter, setEndpointFilter] = useState("");
 
   async function loadEvents() {
     setLoading(true);
     setError(null);
     try {
-      setEvents(await request<EventListItem[]>("/v1/events"));
+      const query = new URLSearchParams();
+      if (statusFilter !== "") query.set("status", statusFilter);
+      if (endpointFilter !== "") query.set("endpointId", endpointFilter);
+      const suffix = query.size === 0 ? "" : `?${query.toString()}`;
+      setEvents(await request<EventListItem[]>(`/v1/events${suffix}`));
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Could not load events.",
@@ -137,7 +154,21 @@ function EventList() {
 
   useEffect(() => {
     void loadEvents();
+  }, [endpointFilter, statusFilter]);
+
+  useEffect(() => {
+    void request<readonly Readonly<{ id: string; name: string }>[]>(
+      "/v1/endpoints",
+    )
+      .then((loadedEndpoints) => {
+        setEndpoints(loadedEndpoints);
+      })
+      .catch(() => {
+        setEndpoints([]);
+      });
   }, []);
+
+  const hasFilters = statusFilter !== "" || endpointFilter !== "";
 
   return (
     <>
@@ -151,6 +182,53 @@ function EventList() {
           durable storage, not destination delivery.
         </p>
       </section>
+      <section className="event-filters" aria-label="Event filters">
+        <label>
+          Status
+          <select
+            value={statusFilter}
+            onChange={(event) => {
+              setStatusFilter(
+                event.target.value as EventListItem["status"] | "",
+              );
+            }}
+          >
+            <option value="">All statuses</option>
+            {Object.entries(statusLabels).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Endpoint
+          <select
+            value={endpointFilter}
+            onChange={(event) => {
+              setEndpointFilter(event.target.value);
+            }}
+          >
+            <option value="">All endpoints</option>
+            {endpoints.map((endpoint) => (
+              <option key={endpoint.id} value={endpoint.id}>
+                {endpoint.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <button
+          className="quiet-button"
+          disabled={!hasFilters}
+          type="button"
+          onClick={() => {
+            setStatusFilter("");
+            setEndpointFilter("");
+          }}
+        >
+          Clear filters
+        </button>
+      </section>
       {loading ? <EventsLoading /> : null}
       {!loading && error !== null ? (
         <section className="event-state" role="alert">
@@ -163,15 +241,34 @@ function EventList() {
       ) : null}
       {!loading && error === null && events.length === 0 ? (
         <section className="event-state event-empty">
-          <p className="eyebrow">NO EVENTS YET</p>
-          <h2>Your first accepted webhook will appear here.</h2>
-          <p>
-            Create an endpoint in Setup, then send a signed JSON request. The
-            event will be stored before any delivery work begins.
+          <p className="eyebrow">
+            {hasFilters ? "NO MATCHING EVENTS" : "NO EVENTS YET"}
           </p>
-          <a className="primary-link" href="#setup">
-            Open setup
-          </a>
+          <h2>
+            {hasFilters
+              ? "No events match these filters."
+              : "Your first accepted webhook will appear here."}
+          </h2>
+          <p>
+            {hasFilters
+              ? "Clear one or both filters to return to the full operational history."
+              : "Create an endpoint in Setup, then send a signed JSON request. The event will be stored before any delivery work begins."}
+          </p>
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={() => {
+                setStatusFilter("");
+                setEndpointFilter("");
+              }}
+            >
+              Clear filters
+            </button>
+          ) : (
+            <a className="primary-link" href="#setup">
+              Open setup
+            </a>
+          )}
         </section>
       ) : null}
       {!loading && error === null && events.length > 0 ? (
@@ -221,6 +318,10 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
     kind: "success" | "error";
     message: string;
   } | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<{
+    target: string;
+    kind: "success" | "error";
+  } | null>(null);
 
   async function loadEvent() {
     setLoading(true);
@@ -252,7 +353,21 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
         kind: "success",
         message: `Manual attempt ${String(result.attemptNumber)} was safely queued.`,
       });
-      await loadEvent();
+      for (let poll = 0; poll < 40; poll += 1) {
+        const refreshed = await request<EventDetail>(`/v1/events/${eventId}`);
+        setEvent(refreshed);
+        if (["DELIVERED", "FAILED", "DEAD_LETTER"].includes(refreshed.status)) {
+          setRetryFeedback({
+            kind: refreshed.status === "DELIVERED" ? "success" : "error",
+            message:
+              refreshed.status === "DELIVERED"
+                ? `Manual attempt ${String(result.attemptNumber)} delivered successfully.`
+                : `Manual attempt ${String(result.attemptNumber)} finished as ${statusLabels[refreshed.status].toLowerCase()}.`,
+          });
+          break;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
     } catch (caught) {
       setRetryFeedback({
         kind: "error",
@@ -263,6 +378,15 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
       });
     } finally {
       setRetrying(false);
+    }
+  }
+
+  async function copyDiagnostics(target: string, value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyFeedback({ target, kind: "success" });
+    } catch {
+      setCopyFeedback({ target, kind: "error" });
     }
   }
 
@@ -298,6 +422,25 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
           </span>
         </div>
         <p className="event-identity">{event.id}</p>
+        <div className="detail-actions">
+          <button
+            className="quiet-button"
+            type="button"
+            onClick={() =>
+              void copyDiagnostics("event", buildEventDiagnostics(event))
+            }
+          >
+            Copy event diagnostics
+          </button>
+          {copyFeedback?.target === "event" ? (
+            <span
+              className={`copy-feedback copy-${copyFeedback.kind}`}
+              role={copyFeedback.kind === "error" ? "alert" : "status"}
+            >
+              {copyFeedback.kind === "success" ? "Copied" : "Copy failed"}
+            </span>
+          ) : null}
+        </div>
       </section>
       <div className="detail-layout">
         <section className="event-facts" aria-labelledby="facts-title">
@@ -354,6 +497,12 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
               {retryFeedback.message}
             </p>
           ) : null}
+          <AttemptHistory
+            eventId={event.id}
+            attempts={event.attempts}
+            copyFeedback={copyFeedback}
+            onCopy={copyDiagnostics}
+          />
           <div className="payload-heading">
             <h2>Redacted payload</h2>
             <p>Credential-shaped fields are removed before storage.</p>

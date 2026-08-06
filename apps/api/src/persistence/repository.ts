@@ -2,10 +2,12 @@ import { randomBytes } from "node:crypto";
 
 import {
   eventStatusSchema,
+  attemptStatusSchema,
   type CreateDestinationInput,
   type DestinationResponse,
   type EndpointResponse,
   type EventDetail,
+  type EventFilter,
   type EventListItem,
 } from "@afterhook/contracts";
 import {
@@ -68,7 +70,7 @@ export type SetupRepository = Readonly<{
   listEndpoints: () => Promise<EndpointResponse[]>;
   findIngestionEndpoint: (slug: string) => Promise<IngestionEndpoint | null>;
   persistEvent: (input: PersistEventInput) => Promise<PersistEventOutcome>;
-  listEvents: () => Promise<EventListItem[]>;
+  listEvents: (filters?: EventFilter) => Promise<EventListItem[]>;
   findEventDetail: (eventId: string) => Promise<EventDetail | null>;
   requestManualRetry: (
     eventId: string,
@@ -270,7 +272,15 @@ export function createSetupRepository(
           : ({ outcome: "conflict" } as const);
       });
     },
-    async listEvents() {
+    async listEvents(filters = {}) {
+      const predicates = [
+        filters.status === undefined
+          ? undefined
+          : eq(events.status, filters.status),
+        filters.endpointId === undefined
+          ? undefined
+          : eq(events.endpointId, filters.endpointId),
+      ].filter((predicate) => predicate !== undefined);
       const rows = await database
         .select({
           id: events.id,
@@ -285,6 +295,7 @@ export function createSetupRepository(
         .from(events)
         .innerJoin(endpoints, eq(events.endpointId, endpoints.id))
         .leftJoin(deliveryAttempts, eq(events.id, deliveryAttempts.eventId))
+        .where(predicates.length === 0 ? undefined : and(...predicates))
         .groupBy(events.id, endpoints.id)
         .orderBy(desc(events.receivedAt), desc(events.id));
 
@@ -325,6 +336,23 @@ export function createSetupRepository(
         .from(activityEvents)
         .where(eq(activityEvents.eventId, eventId))
         .orderBy(asc(activityEvents.createdAt), asc(activityEvents.id));
+      const attempts = await database
+        .select({
+          id: deliveryAttempts.id,
+          attemptNumber: deliveryAttempts.attemptNumber,
+          trigger: deliveryAttempts.trigger,
+          status: deliveryAttempts.status,
+          scheduledAt: deliveryAttempts.scheduledAt,
+          startedAt: deliveryAttempts.startedAt,
+          finishedAt: deliveryAttempts.finishedAt,
+          durationMilliseconds: deliveryAttempts.durationMs,
+          responseStatus: deliveryAttempts.responseStatus,
+          errorCode: deliveryAttempts.errorCode,
+          safeErrorMessage: deliveryAttempts.safeErrorMessage,
+        })
+        .from(deliveryAttempts)
+        .where(eq(deliveryAttempts.eventId, eventId))
+        .orderBy(asc(deliveryAttempts.attemptNumber));
 
       return {
         ...toEventListItem(row),
@@ -334,6 +362,19 @@ export function createSetupRepository(
           ...activity,
           metadata: activity.metadata as Record<string, unknown>,
           createdAt: toIsoDate(activity.createdAt),
+        })),
+        attempts: attempts.map((attempt) => ({
+          ...attempt,
+          trigger:
+            attempt.trigger === "MANUAL"
+              ? ("MANUAL" as const)
+              : ("AUTOMATIC" as const),
+          status: attemptStatusSchema.parse(attempt.status),
+          scheduledAt: toIsoDate(attempt.scheduledAt),
+          startedAt:
+            attempt.startedAt === null ? null : toIsoDate(attempt.startedAt),
+          finishedAt:
+            attempt.finishedAt === null ? null : toIsoDate(attempt.finishedAt),
         })),
         manualRetry: getManualRetryEligibility(
           eventStatusSchema.parse(row.status),

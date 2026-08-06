@@ -63,6 +63,7 @@ const eventDetail: EventDetail = {
       createdAt: timestamp,
     },
   ],
+  attempts: [],
   manualRetry: { allowed: false, reason: "DELIVERY_ACTIVE" },
 };
 
@@ -417,6 +418,36 @@ describe("event inspection HTTP contract", () => {
     expect(detailed.statusCode).toBe(200);
     expect(detailed.json()).toEqual(eventDetail);
     expect(`${listed.body}${detailed.body}`).not.toContain("private");
+  });
+
+  it("validates and forwards combined event filters", async () => {
+    let receivedFilters: unknown;
+    const filteredApp = buildServer({
+      ...createRepository(),
+      listEvents: (filters) => {
+        receivedFilters = filters;
+        return Promise.resolve([eventItem]);
+      },
+    });
+    const filtered = await filteredApp.inject({
+      method: "GET",
+      url: `/v1/events?status=FAILED&endpointId=${endpoint.id}`,
+    });
+    const invalid = await filteredApp.inject({
+      method: "GET",
+      url: "/v1/events?status=UNKNOWN",
+    });
+
+    expect(filtered.statusCode).toBe(200);
+    expect(receivedFilters).toEqual({
+      status: "FAILED",
+      endpointId: endpoint.id,
+    });
+    expect(invalid.statusCode).toBe(400);
+    expect(invalid.json()).toMatchObject({
+      error: "VALIDATION_ERROR",
+      message: "Request validation failed.",
+    });
   });
 
   it("returns the same safe not-found response for invalid or missing IDs", async () => {
