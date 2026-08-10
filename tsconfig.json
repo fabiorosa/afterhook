@@ -8,6 +8,7 @@
     { "path": "./packages/contracts/tsconfig.json" },
     { "path": "./packages/domain/tsconfig.json" },
     { "path": "./packages/delivery/tsconfig.json" },
-    { "path": "./packages/orchestration/tsconfig.json" }
+    { "path": "./packages/orchestration/tsconfig.json" },
+    { "path": "./scripts/tsconfig.json" }
   ]
 }

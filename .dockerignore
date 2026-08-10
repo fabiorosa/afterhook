@@ -1,0 +1,9 @@
+.git
+.github
+node_modules
+test-results
+**/*.test.ts
+**/*.test.tsx
+**/*.integration.test.ts
+apps/console/e2e
+debug.log
