@@ -2,10 +2,9 @@
 
 ## Status and scope
 
-WOP-305 selects a zero-cost portfolio topology. The deployment is not live
-until the Render Blueprint is connected and a Neon free connection string is
-provided. Do not treat local release evidence as a hosted-service, uptime, or
-scale claim.
+WOP-305 uses a live zero-cost portfolio topology at
+`https://afterhook.onrender.com`. It serves only the explicit fictional demo.
+Do not treat the deployment as an uptime, scale, or production-service claim.
 
 ## Free-tier topology
 
@@ -80,5 +79,4 @@ through the worker. Redis can be rebuilt; it is not a rollback authority.
 Monitor API health, worker heartbeat, PostgreSQL availability, Redis
 availability, and safe delivery outcomes. Do not put payloads, authorization,
 request headers, response bodies, encryption keys, or internal addresses in
-alerts. This project has no on-call or uptime commitment before a future
-deployment decision.
+alerts. This project has no on-call or uptime commitment.
