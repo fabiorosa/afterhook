@@ -16,5 +16,5 @@ COPY . .
 RUN npm run build && npm --workspace @afterhook/console run build
 
 ENV NODE_ENV=production
-ENV HOST=::
+ENV HOST=0.0.0.0
 CMD ["node", "scripts/dist/start-service.js"]

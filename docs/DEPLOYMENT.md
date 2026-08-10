@@ -19,7 +19,8 @@ scale claim.
 The root `render.yaml` defines the Render resources and non-secret variables.
 The root `Dockerfile` builds the release artifact. Set
 `AFTERHOOK_SERVICE_ROLE=all` to start the three processes. The image binds the
-API to `::` and gives the destination a separate loopback host and port.
+API to `0.0.0.0` for Render's public proxy and gives the destination a separate
+loopback host and port.
 
 Configuration boundaries:
 
