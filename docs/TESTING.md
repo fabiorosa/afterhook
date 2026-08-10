@@ -164,6 +164,15 @@ route is present, including the guarded demo routes. Fresh-clone instructions
 run the existing migration, quality, and process boundaries; security and
 deployment documents state their limitations rather than claim a hosted state.
 
+WOP-304 keeps one final Chromium walkthrough for the complete operator path.
+It creates a deterministic failure, opens the event from the desktop list with
+the keyboard, verifies that payload and delivery credentials are absent,
+requests the safe manual recovery, waits for the fourth attempt to finish, and
+rechecks the recovered detail at 390 px without horizontal overflow. The
+walkthrough runs against the real local Fastify, PostgreSQL, Redis, BullMQ, and
+destination processes. It is a verification gate only: public evidence,
+deployment, and the `v0.1.0` release remain WOP-305 work.
+
 ## Static gates
 
 - TypeScript strict typecheck.
