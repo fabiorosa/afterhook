@@ -241,3 +241,24 @@ generator dependency that has no current consumer.
 The runbook describes operational requirements and failure limits, but it does
 not select a provider or imply that a demo is deployed. Hosting is a material
 product decision reserved for WOP-305.
+
+## ADR-019: Keep the public demo inside durable free-tier limits
+
+**Status:** accepted.
+
+WOP-305 uses one free Render web service, one free Render Key Value instance,
+and one free Neon PostgreSQL project. The web container starts independent API,
+worker, and fictional destination Node.js processes from one reviewed image.
+Only the API port is public, and it serves the compiled React console at the
+same origin. The destination listens only on container loopback.
+
+This co-location is a demo hosting trade-off, not a change to the product's
+logical boundaries. PostgreSQL remains authoritative and external. Redis
+remains coordination only, so free Key Value restarts can be reconciled from
+PostgreSQL. A paid background-worker service is deliberately avoided.
+
+Vercel is not selected for the backend because time-bounded functions cannot
+host the persistent BullMQ worker. Render free web services sleep after 15
+minutes without inbound traffic and can take about one minute to wake. Neon
+free compute also scales to zero. These are explicit portfolio-demo limits,
+not uptime claims.

@@ -3,6 +3,8 @@ import {
   createEventQueue,
   createRedisConnection,
 } from "@afterhook/orchestration";
+import fastifyStatic from "@fastify/static";
+import { fileURLToPath } from "node:url";
 
 import { createPostgresRepository } from "./persistence/repository.js";
 import { buildServer } from "./server.js";
@@ -34,9 +36,18 @@ const app = buildServer(repository, {
   },
 });
 
+if (process.env.AFTERHOOK_SERVE_CONSOLE === "true") {
+  await app.register(fastifyStatic, {
+    root: fileURLToPath(new URL("../../console/dist", import.meta.url)),
+  });
+}
+
 app.addHook("onClose", async () => {
   await eventQueue.close();
   await redis.quit();
 });
 
-await app.listen({ host: "127.0.0.1", port: Number(process.env.PORT ?? 3001) });
+await app.listen({
+  host: process.env.HOST ?? "127.0.0.1",
+  port: Number(process.env.PORT ?? 3001),
+});

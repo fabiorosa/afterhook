@@ -2,9 +2,39 @@
 
 ## Status and scope
 
-This is an operational design runbook, not a deployment instruction for a
-public service. WOP-303 documents the boundary required before WOP-305 chooses
-and executes a hosting path. Do not treat it as an uptime or scale promise.
+WOP-305 selects a zero-cost portfolio topology. The deployment is not live
+until the Render Blueprint is connected and a Neon free connection string is
+provided. Do not treat local release evidence as a hosted-service, uptime, or
+scale claim.
+
+## Free-tier topology
+
+- one Render free web service runs independent API, worker, and fictional
+  destination processes from the same image;
+- the API serves the compiled React console on the public Render port;
+- the destination binds only to `127.0.0.1:3201` inside the container;
+- Neon free PostgreSQL owns authoritative product and execution records;
+- Render free Key Value coordinates identifier-only jobs and heartbeat state.
+
+The root `render.yaml` defines the Render resources and non-secret variables.
+The root `Dockerfile` builds the release artifact. Set
+`AFTERHOOK_SERVICE_ROLE=all` to start the three processes. The image binds the
+API to `::` and gives the destination a separate loopback host and port.
+
+Configuration boundaries:
+
+- provide the pooled Neon `DATABASE_URL` only through Render's secret prompt;
+- `REDIS_URL` references the Blueprint's Key Value connection string;
+- Render generates `SECRET_ENCRYPTION_KEY` as a 256-bit secret;
+- `ALLOW_PRIVATE_DESTINATIONS=true` is limited to the controlled loopback demo
+  destination;
+- only the web service receives a public domain.
+
+Render free web services sleep after 15 minutes without inbound traffic and can
+take about one minute to wake. Free Key Value has no persistence, which is
+acceptable because Redis is not authoritative and the worker reconciles retry
+schedules from PostgreSQL. Neon free compute scales to zero when idle. This is
+a public portfolio demo, not a production availability promise.
 
 ## Required processes
 
@@ -31,8 +61,10 @@ test Redis database or local example key with a deployed environment.
 2. Back up PostgreSQL and verify restoration separately.
 3. Apply migrations before accepting API traffic.
 4. Start the worker, then API, and verify `/health` reports a healthy worker.
-5. Verify one fictional success event and inspect its safe timeline.
-6. Enable public traffic only after the above checks are recorded.
+5. Verify the success, retryable failure, and manual recovery scenarios contain
+   only fictional redacted values.
+6. Capture the release evidence from the deployed commit.
+7. Enable public traffic only after the above checks are recorded.
 
 ## Rollback and recovery
 

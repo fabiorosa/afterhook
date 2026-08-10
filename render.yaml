@@ -1,0 +1,41 @@
+services:
+  - type: keyvalue
+    name: afterhook-redis
+    plan: free
+    region: ohio
+    ipAllowList: []
+    maxmemoryPolicy: noeviction
+    persistenceMode: off
+
+  - type: web
+    name: afterhook
+    runtime: docker
+    plan: free
+    region: ohio
+    autoDeployTrigger: checksPass
+    healthCheckPath: /health
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: afterhook-redis
+          property: connectionString
+      - key: SECRET_ENCRYPTION_KEY
+        generateValue: true
+      - key: AFTERHOOK_SERVICE_ROLE
+        value: all
+      - key: AFTERHOOK_SERVE_CONSOLE
+        value: true
+      - key: AFTERHOOK_DEMO_ENABLED
+        value: true
+      - key: AFTERHOOK_DEMO_DESTINATION_ORIGIN
+        value: http://127.0.0.1:3201
+      - key: AFTERHOOK_DESTINATION_HOST
+        value: 127.0.0.1
+      - key: AFTERHOOK_DESTINATION_PORT
+        value: 3201
+      - key: ALLOW_PRIVATE_DESTINATIONS
+        value: true

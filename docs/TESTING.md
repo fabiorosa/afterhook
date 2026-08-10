@@ -195,3 +195,11 @@ deployment, and the `v0.1.0` release remain WOP-305 work.
 - one screenshot for failed attempt detail;
 - one short walkthrough from failure to safe retry;
 - README claims match observable behavior.
+
+WOP-305 makes evidence capture an explicit mode of the final Chromium
+walkthrough. Set `AFTERHOOK_CAPTURE_RELEASE_EVIDENCE=true` and run the named
+operator test to write the event list, failed attempt detail, and a video of
+the failure-to-safe-retry journey. The checked-in files under `docs/evidence`
+were captured on 2026-08-10 against real local PostgreSQL, Redis, BullMQ,
+Fastify, and Chromium processes. They are local release evidence, not proof of
+a hosted environment. Hosted evidence must be recaptured after deployment.
