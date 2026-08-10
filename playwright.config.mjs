@@ -8,7 +8,12 @@ if (databaseUrl === undefined || redisUrl === undefined) {
 
 export default defineConfig({
   testDir: "./apps/console/e2e",
-  use: { baseURL: "http://127.0.0.1:5273" },
+  outputDir: "test-results",
+  use: {
+    baseURL: "http://127.0.0.1:5273",
+    video:
+      process.env.AFTERHOOK_CAPTURE_RELEASE_EVIDENCE === "true" ? "on" : "off",
+  },
   webServer: [
     {
       command: "node apps/destination/dist/index.js",

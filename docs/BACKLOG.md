@@ -50,7 +50,7 @@ and manual recovery pass against real PostgreSQL, Redis, and HTTP processes.
 | WOP-302 | Add deterministic demo modes and guarded reset. GitHub #23                                        | done   |
 | WOP-303 | Complete OpenAPI contract, fresh-clone setup, security policy, and deployment runbook. GitHub #25 | done   |
 | WOP-304 | Add Playwright desktop, keyboard, privacy, and mobile walkthroughs                                | done   |
-| WOP-305 | Capture evidence, deploy the public demo, and publish `v0.1.0`                                    | todo   |
+| WOP-305 | Capture evidence, deploy the public demo, and publish `v0.1.0`. GitHub #29                        | active |
 
 **Gate:** one complete webhook-to-recovery journey is published, documented,
 testable, and defensible in an interview. No post-MVP feature begins before

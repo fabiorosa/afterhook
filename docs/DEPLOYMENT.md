@@ -2,9 +2,38 @@
 
 ## Status and scope
 
-This is an operational design runbook, not a deployment instruction for a
-public service. WOP-303 documents the boundary required before WOP-305 chooses
-and executes a hosting path. Do not treat it as an uptime or scale promise.
+WOP-305 selects Railway for the first public demo. The deployment is not live:
+the authenticated account rejected project creation because its trial has
+expired. No Railway project or billable resource was created. Do not treat the
+local release evidence as a hosted-service, uptime, or scale claim.
+
+## Railway topology
+
+- `afterhook-api`: public domain, API role, compiled React console enabled;
+- `afterhook-worker`: private worker role;
+- `afterhook-destination`: private fictional destination role on port `3201`;
+- managed PostgreSQL: authoritative product and execution records;
+- managed Redis: identifier-only queue and heartbeat coordination.
+
+All three application services build the repository's root `Dockerfile`.
+Set `AFTERHOOK_SERVICE_ROLE` to `api`, `worker`, or `destination`. Set
+`AFTERHOOK_SERVE_CONSOLE=true` only on the API. The image binds to `::` so it
+can receive Railway public and private dual-stack traffic.
+
+Use reference variables rather than copied credentials:
+
+- API and worker `DATABASE_URL` reference the PostgreSQL service;
+- API and worker `REDIS_URL` reference the Redis service;
+- API `AFTERHOOK_DEMO_DESTINATION_ORIGIN` uses
+  `http://${{afterhook-destination.RAILWAY_PRIVATE_DOMAIN}}:${{afterhook-destination.PORT}}`;
+- destination `PORT` is explicitly `3201`;
+- worker `ALLOW_PRIVATE_DESTINATIONS=true` permits only the controlled demo
+  topology for this deployment;
+- API and worker share one sealed, randomly generated
+  `SECRET_ENCRYPTION_KEY`.
+
+Only the API receives a public domain. PostgreSQL, Redis, worker, and
+destination remain private.
 
 ## Required processes
 
@@ -31,8 +60,10 @@ test Redis database or local example key with a deployed environment.
 2. Back up PostgreSQL and verify restoration separately.
 3. Apply migrations before accepting API traffic.
 4. Start the worker, then API, and verify `/health` reports a healthy worker.
-5. Verify one fictional success event and inspect its safe timeline.
-6. Enable public traffic only after the above checks are recorded.
+5. Verify the success, retryable failure, and manual recovery scenarios contain
+   only fictional redacted values.
+6. Capture the release evidence from the deployed commit.
+7. Enable public traffic only after the above checks are recorded.
 
 ## Rollback and recovery
 

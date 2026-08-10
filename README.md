@@ -14,6 +14,23 @@ and an operational React console. Explicitly enabled demo controls create only
 fictional success, timeout, and retryable-failure scenarios and can reset only
 their own persistently marked records.
 
+WOP-305 release evidence is under review. The public deployment is not live
+because the selected Railway account requires plan activation. No hosted URL,
+uptime, adoption, or usage is claimed.
+
+## Product evidence
+
+The final Chromium walkthrough runs against real local PostgreSQL, Redis,
+BullMQ, Fastify, and destination processes. Payload credentials are redacted,
+delivery authorization is absent, and manual recovery appends attempt four
+without rewriting prior failures.
+
+![AfterHook event list with fictional delivery states](docs/evidence/event-list.png)
+
+![AfterHook failed attempt detail with redacted payload](docs/evidence/failed-attempt-detail.png)
+
+[Watch the failure-to-safe-retry walkthrough](docs/evidence/failure-to-safe-retry.webm).
+
 ## Local development
 
 AfterHook requires Node.js 22 or later and npm.
@@ -89,7 +106,7 @@ hosting. The runbook is not a deployed-service claim.
 
 ## First release
 
-The MVP release will prove one complete journey:
+The MVP release candidate proves one complete local journey:
 
 1. create an endpoint and destination;
 2. send a signed webhook;

@@ -1,6 +1,6 @@
 # Session state
 
-Updated: 2026-08-06.
+Updated: 2026-08-10.
 
 ## Completed and validated
 
@@ -102,16 +102,28 @@ Updated: 2026-08-06.
   dead-letter event from the desktop list by keyboard, confirms private payload
   and delivery values remain absent, safely requests recovery, and rechecks the
   fourth delivered attempt at 390 px without horizontal overflow.
+- WOP-304 was merged through PR #28. Main Quality run `31419392270` passed for
+  merge `ec9627d`.
+- WOP-305 issue #29 and branch `agent/public-demo-release` are active.
+- The release Docker image builds successfully and selects isolated API,
+  worker, or destination process roles. Runtime dependency audit reports zero
+  vulnerabilities after upgrading `@fastify/static` to `10.1.3`.
+- The final real-process Chromium walkthrough passed in 6.6 seconds and wrote
+  the event list, failed-attempt detail, and failure-to-safe-retry video under
+  `docs/evidence`.
 
 ## In progress
 
-WOP-304 is published as draft PR #28 from `agent/operator-walkthroughs` for
-GitHub issue #27.
+WOP-305 is active on `agent/public-demo-release` for GitHub issue #29. Railway
+is selected, but its authenticated CLI rejected project creation because the
+account trial expired. No project or billable resource was created.
 
 ## Pending work
 
-1. Review and merge WOP-304 after terminal GitHub checks.
-2. Do not begin WOP-305 deployment, evidence capture, or release work.
+1. Activate a Railway plan explicitly.
+2. Create and verify the five-service demo topology from the reviewed image.
+3. Recapture evidence from the hosted commit, add the public URL, complete the
+   PR checks, merge, and publish `v0.1.0`.
 
 ## Decisions
 
@@ -142,6 +154,9 @@ GitHub issue #27.
   requirements without selecting or claiming a hosted platform.
 - WOP-304 proves the existing operator journey through the real local processes
   without adding product capability, publishing evidence, or deploying.
+- WOP-305 uses one Docker image with separate runtime roles. Only the API is
+  public and it serves the compiled console at the same origin. Worker,
+  destination, PostgreSQL, and Redis remain private on Railway.
 
 ## Dead ends
 
@@ -150,24 +165,28 @@ GitHub issue #27.
 - PostgreSQL driver errors wrap trigger messages. The rollback regression test
   asserts rejection and committed state instead of private driver wording.
 - PowerShell may block `npm.ps1`. Use `npm.cmd` for local checks.
+- Railway project creation cannot continue on the expired trial. Do not select
+  a less suitable platform or claim a local tunnel as a durable public demo.
 
 ## Open questions
 
-None for WOP-304.
+Railway plan activation requires an explicit billing decision by Fabio.
 
 ## Next step
 
-Review WOP-304 after terminal GitHub checks. Do not begin WOP-305 before its
-merge gate passes.
+Activate a Railway plan, then provision and verify the documented topology.
 
 ## Pending validation
 
-Local Quality, push Quality, and pull-request Quality must reach terminal green
-states.
+Full local Quality, draft PR Quality, hosted deployment verification, hosted
+evidence recapture, merge Quality, and the `v0.1.0` release remain pending.
 
 ## Continuation prompt
 
 ```text
-Review and merge WOP-304 only after terminal GitHub checks. Do not deploy,
-capture public evidence, or publish a release before WOP-305.
+Continue WOP-305 from issue #29 and branch agent/public-demo-release. The code,
+image, local browser evidence, and Railway topology are prepared. Railway
+project creation is blocked by the expired trial; no resource was created.
+After explicit plan activation, deploy, verify fictional redacted data,
+recapture hosted evidence, complete the PR, merge, and publish v0.1.0.
 ```

@@ -241,3 +241,26 @@ generator dependency that has no current consumer.
 The runbook describes operational requirements and failure limits, but it does
 not select a provider or imply that a demo is deployed. Hosting is a material
 product decision reserved for WOP-305.
+
+## ADR-019: Deploy one artifact with isolated Railway process roles
+
+**Status:** accepted, execution blocked by hosting plan activation.
+
+WOP-305 selects Railway because the release needs three persistent application
+processes plus managed PostgreSQL and Redis in one private network. The API is
+the only public process. It also serves the compiled React console so the
+browser and API keep one origin. The worker and fictional destination remain
+private. Each application service builds the same reviewed Docker image and
+selects `api`, `worker`, or `destination` through
+`AFTERHOOK_SERVICE_ROLE`.
+
+Database and Redis connection strings must use Railway reference variables.
+The destination origin must use its private domain and explicit port. The
+encryption key is generated outside the repository and sealed in the hosting
+platform. This keeps one release artifact without collapsing runtime
+boundaries or exposing infrastructure services publicly.
+
+The authenticated Railway CLI rejected project creation because the account's
+trial has expired. No project or resources were created. A public URL and
+release remain blocked until a paid plan is explicitly activated; local
+evidence is not represented as a hosted demo.

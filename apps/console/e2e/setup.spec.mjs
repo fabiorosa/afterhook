@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { mkdir } from "node:fs/promises";
 
 import { expect, test } from "@playwright/test";
 import { createSecretCipher } from "@afterhook/domain";
@@ -323,6 +324,13 @@ test("completes the operator walkthrough across desktop, keyboard, privacy, and 
     .toBe("DEAD_LETTER");
   await page.goto("/#events");
   const eventLink = page.locator(`a[href="#events/${created.event.eventId}"]`);
+  if (process.env.AFTERHOOK_CAPTURE_RELEASE_EVIDENCE === "true") {
+    await mkdir("docs/evidence", { recursive: true });
+    await page.screenshot({
+      path: "docs/evidence/event-list.png",
+      fullPage: true,
+    });
+  }
   await eventLink.focus();
   await expect(eventLink).toBeFocused();
   await page.keyboard.press("Enter");
@@ -337,6 +345,12 @@ test("completes the operator walkthrough across desktop, keyboard, privacy, and 
     "destination-manual-recovery",
   );
   await expect(page.locator("body")).not.toContainText("ahsec_");
+  if (process.env.AFTERHOOK_CAPTURE_RELEASE_EVIDENCE === "true") {
+    await page.screenshot({
+      path: "docs/evidence/failed-attempt-detail.png",
+      fullPage: true,
+    });
+  }
   const retryButton = page.getByRole("button", { name: "Retry delivery" });
   await retryButton.focus();
   await expect(retryButton).toBeFocused();
