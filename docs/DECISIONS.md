@@ -242,25 +242,23 @@ The runbook describes operational requirements and failure limits, but it does
 not select a provider or imply that a demo is deployed. Hosting is a material
 product decision reserved for WOP-305.
 
-## ADR-019: Deploy one artifact with isolated Railway process roles
+## ADR-019: Keep the public demo inside durable free-tier limits
 
-**Status:** accepted, execution blocked by hosting plan activation.
+**Status:** accepted.
 
-WOP-305 selects Railway because the release needs three persistent application
-processes plus managed PostgreSQL and Redis in one private network. The API is
-the only public process. It also serves the compiled React console so the
-browser and API keep one origin. The worker and fictional destination remain
-private. Each application service builds the same reviewed Docker image and
-selects `api`, `worker`, or `destination` through
-`AFTERHOOK_SERVICE_ROLE`.
+WOP-305 uses one free Render web service, one free Render Key Value instance,
+and one free Neon PostgreSQL project. The web container starts independent API,
+worker, and fictional destination Node.js processes from one reviewed image.
+Only the API port is public, and it serves the compiled React console at the
+same origin. The destination listens only on container loopback.
 
-Database and Redis connection strings must use Railway reference variables.
-The destination origin must use its private domain and explicit port. The
-encryption key is generated outside the repository and sealed in the hosting
-platform. This keeps one release artifact without collapsing runtime
-boundaries or exposing infrastructure services publicly.
+This co-location is a demo hosting trade-off, not a change to the product's
+logical boundaries. PostgreSQL remains authoritative and external. Redis
+remains coordination only, so free Key Value restarts can be reconciled from
+PostgreSQL. A paid background-worker service is deliberately avoided.
 
-The authenticated Railway CLI rejected project creation because the account's
-trial has expired. No project or resources were created. A public URL and
-release remain blocked until a paid plan is explicitly activated; local
-evidence is not represented as a hosted demo.
+Vercel is not selected for the backend because time-bounded functions cannot
+host the persistent BullMQ worker. Render free web services sleep after 15
+minutes without inbound traffic and can take about one minute to wake. Neon
+free compute also scales to zero. These are explicit portfolio-demo limits,
+not uptime claims.

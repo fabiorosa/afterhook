@@ -14,9 +14,9 @@ and an operational React console. Explicitly enabled demo controls create only
 fictional success, timeout, and retryable-failure scenarios and can reset only
 their own persistently marked records.
 
-WOP-305 release evidence is under review. The public deployment is not live
-because the selected Railway account requires plan activation. No hosted URL,
-uptime, adoption, or usage is claimed.
+WOP-305 release evidence is under review. The public demo is being prepared on
+zero-cost Render, Render Key Value, and Neon tiers. No hosted URL, uptime,
+adoption, or usage is claimed until deployment verification is complete.
 
 ## Product evidence
 

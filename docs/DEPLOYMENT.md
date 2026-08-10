@@ -2,38 +2,39 @@
 
 ## Status and scope
 
-WOP-305 selects Railway for the first public demo. The deployment is not live:
-the authenticated account rejected project creation because its trial has
-expired. No Railway project or billable resource was created. Do not treat the
-local release evidence as a hosted-service, uptime, or scale claim.
+WOP-305 selects a zero-cost portfolio topology. The deployment is not live
+until the Render Blueprint is connected and a Neon free connection string is
+provided. Do not treat local release evidence as a hosted-service, uptime, or
+scale claim.
 
-## Railway topology
+## Free-tier topology
 
-- `afterhook-api`: public domain, API role, compiled React console enabled;
-- `afterhook-worker`: private worker role;
-- `afterhook-destination`: private fictional destination role on port `3201`;
-- managed PostgreSQL: authoritative product and execution records;
-- managed Redis: identifier-only queue and heartbeat coordination.
+- one Render free web service runs independent API, worker, and fictional
+  destination processes from the same image;
+- the API serves the compiled React console on the public Render port;
+- the destination binds only to `127.0.0.1:3201` inside the container;
+- Neon free PostgreSQL owns authoritative product and execution records;
+- Render free Key Value coordinates identifier-only jobs and heartbeat state.
 
-All three application services build the repository's root `Dockerfile`.
-Set `AFTERHOOK_SERVICE_ROLE` to `api`, `worker`, or `destination`. Set
-`AFTERHOOK_SERVE_CONSOLE=true` only on the API. The image binds to `::` so it
-can receive Railway public and private dual-stack traffic.
+The root `render.yaml` defines the Render resources and non-secret variables.
+The root `Dockerfile` builds the release artifact. Set
+`AFTERHOOK_SERVICE_ROLE=all` to start the three processes. The image binds the
+API to `::` and gives the destination a separate loopback host and port.
 
-Use reference variables rather than copied credentials:
+Configuration boundaries:
 
-- API and worker `DATABASE_URL` reference the PostgreSQL service;
-- API and worker `REDIS_URL` reference the Redis service;
-- API `AFTERHOOK_DEMO_DESTINATION_ORIGIN` uses
-  `http://${{afterhook-destination.RAILWAY_PRIVATE_DOMAIN}}:${{afterhook-destination.PORT}}`;
-- destination `PORT` is explicitly `3201`;
-- worker `ALLOW_PRIVATE_DESTINATIONS=true` permits only the controlled demo
-  topology for this deployment;
-- API and worker share one sealed, randomly generated
-  `SECRET_ENCRYPTION_KEY`.
+- provide the pooled Neon `DATABASE_URL` only through Render's secret prompt;
+- `REDIS_URL` references the Blueprint's Key Value connection string;
+- Render generates `SECRET_ENCRYPTION_KEY` as a 256-bit secret;
+- `ALLOW_PRIVATE_DESTINATIONS=true` is limited to the controlled loopback demo
+  destination;
+- only the web service receives a public domain.
 
-Only the API receives a public domain. PostgreSQL, Redis, worker, and
-destination remain private.
+Render free web services sleep after 15 minutes without inbound traffic and can
+take about one minute to wake. Free Key Value has no persistence, which is
+acceptable because Redis is not authoritative and the worker reconciles retry
+schedules from PostgreSQL. Neon free compute scales to zero when idle. This is
+a public portfolio demo, not a production availability promise.
 
 ## Required processes
 

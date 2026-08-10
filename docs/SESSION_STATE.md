@@ -111,17 +111,22 @@ Updated: 2026-08-10.
 - The final real-process Chromium walkthrough passed in 6.6 seconds and wrote
   the event list, failed-attempt detail, and failure-to-safe-retry video under
   `docs/evidence`.
+- The zero-cost co-located image was exercised as a real container: migrations
+  passed, all three processes started, health reported a live worker, the
+  console returned `200`, and a fictional event reached `DELIVERED`.
 
 ## In progress
 
-WOP-305 is active on `agent/public-demo-release` for GitHub issue #29. Railway
-is selected, but its authenticated CLI rejected project creation because the
-account trial expired. No project or billable resource was created.
+WOP-305 is active on `agent/public-demo-release` for GitHub issue #29 and draft
+PR #30. The paid Railway path was rejected as unsuitable for a portfolio demo.
+The replacement zero-cost topology is Render web + Key Value with Neon
+PostgreSQL.
 
 ## Pending work
 
-1. Activate a Railway plan explicitly.
-2. Create and verify the five-service demo topology from the reviewed image.
+1. Connect the repository Blueprint to a free Render account and provide a free
+   Neon pooled `DATABASE_URL` through the secret prompt.
+2. Verify the co-located three-process demo topology from the reviewed image.
 3. Recapture evidence from the hosted commit, add the public URL, complete the
    PR checks, merge, and publish `v0.1.0`.
 
@@ -154,9 +159,9 @@ account trial expired. No project or billable resource was created.
   requirements without selecting or claiming a hosted platform.
 - WOP-304 proves the existing operator journey through the real local processes
   without adding product capability, publishing evidence, or deploying.
-- WOP-305 uses one Docker image with separate runtime roles. Only the API is
-  public and it serves the compiled console at the same origin. Worker,
-  destination, PostgreSQL, and Redis remain private on Railway.
+- WOP-305 uses one Docker image with separate Node.js processes co-located on a
+  free Render web instance. Only the API port is public. Neon PostgreSQL remains
+  authoritative and Render Key Value remains disposable coordination.
 
 ## Dead ends
 
@@ -165,16 +170,18 @@ account trial expired. No project or billable resource was created.
 - PostgreSQL driver errors wrap trigger messages. The rollback regression test
   asserts rejection and committed state instead of private driver wording.
 - PowerShell may block `npm.ps1`. Use `npm.cmd` for local checks.
-- Railway project creation cannot continue on the expired trial. Do not select
-  a less suitable platform or claim a local tunnel as a durable public demo.
+- Vercel functions are time-bounded and cannot host the persistent BullMQ
+  worker. Render's free sleep and cold-start limits must remain visible.
 
 ## Open questions
 
-Railway plan activation requires an explicit billing decision by Fabio.
+Render and Neon account authorization may require Fabio to complete provider
+login if no authenticated session exists.
 
 ## Next step
 
-Activate a Railway plan, then provision and verify the documented topology.
+Connect the free Render Blueprint and Neon database, then verify the hosted
+journey.
 
 ## Pending validation
 
@@ -185,8 +192,7 @@ evidence recapture, merge Quality, and the `v0.1.0` release remain pending.
 
 ```text
 Continue WOP-305 from issue #29 and branch agent/public-demo-release. The code,
-image, local browser evidence, and Railway topology are prepared. Railway
-project creation is blocked by the expired trial; no resource was created.
-After explicit plan activation, deploy, verify fictional redacted data,
+image and local browser evidence are prepared. Use the zero-cost Render web +
+Key Value and Neon PostgreSQL topology. Deploy, verify fictional redacted data,
 recapture hosted evidence, complete the PR, merge, and publish v0.1.0.
 ```
