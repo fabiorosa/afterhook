@@ -14,9 +14,10 @@ and an operational React console. Explicitly enabled demo controls create only
 fictional success, timeout, and retryable-failure scenarios and can reset only
 their own persistently marked records.
 
-WOP-305 release evidence is under review. The public demo is being prepared on
-zero-cost Render, Render Key Value, and Neon tiers. No hosted URL, uptime,
-adoption, or usage is claimed until deployment verification is complete.
+The [public demo](https://afterhook.onrender.com) runs on zero-cost Render,
+Render Key Value, and Neon tiers. It contains only fictional, redacted data.
+The Render free service sleeps after inactivity, so its first request can take
+about a minute. This is a portfolio demonstration, not an uptime claim.
 
 ## Product evidence
 
@@ -30,6 +31,13 @@ without rewriting prior failures.
 ![AfterHook failed attempt detail with redacted payload](docs/evidence/failed-attempt-detail.png)
 
 [Watch the failure-to-safe-retry walkthrough](docs/evidence/failure-to-safe-retry.webm).
+
+The deployed commit was also checked at the public URL. These captures show
+the fictional event list and dead-letter detail as served by Render:
+
+![Hosted AfterHook event list](docs/evidence/hosted-event-list.png)
+
+![Hosted AfterHook dead-letter detail](docs/evidence/hosted-failed-attempt-detail.png)
 
 ## Local development
 
@@ -101,8 +109,8 @@ are encrypted only for delivery and are never returned by inspection APIs.
 
 The versioned draft [OpenAPI contract](docs/openapi.yaml) covers every public
 route and safe response shape. Read [SECURITY.md](SECURITY.md) before reporting
-a vulnerability and the [deployment runbook](docs/DEPLOYMENT.md) before choosing
-hosting. The runbook is not a deployed-service claim.
+a vulnerability and the [deployment runbook](docs/DEPLOYMENT.md) for the
+documented public-demo topology and its limits.
 
 ## First release
 

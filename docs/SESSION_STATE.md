@@ -114,21 +114,26 @@ Updated: 2026-08-10.
 - The zero-cost co-located image was exercised as a real container: migrations
   passed, all three processes started, health reported a live worker, the
   console returned `200`, and a fictional event reached `DELIVERED`.
+- WOP-305 is deployed at `https://afterhook.onrender.com` on Render free Web
+  Service + Key Value and Neon free PostgreSQL.
+- PR #32 fixed the public Render binding to IPv4. Main Quality run
+  `31428189159` passed; twelve consecutive public `/health` and `/v1/demo`
+  checks returned `200`; and the fictional retryable-failure scenario reached
+  `DEAD_LETTER` after three automatic attempts.
+- PR #33 fixed the hosted console's native filter contrast. Main Quality run
+  `31429084747` passed, the Render deploy is live, and public event-list plus
+  dead-letter-detail screenshots are checked in under `docs/evidence`.
 
 ## In progress
 
-WOP-305 is active on `agent/public-demo-release` for GitHub issue #29 and draft
-PR #30. The paid Railway path was rejected as unsuitable for a portfolio demo.
-The replacement zero-cost topology is Render web + Key Value with Neon
-PostgreSQL.
+WOP-305 release metadata is being finalized after live verification. The paid
+Railway path was rejected as unsuitable for a portfolio demo. The released
+zero-cost topology is Render web + Key Value with Neon PostgreSQL.
 
 ## Pending work
 
-1. Connect the repository Blueprint to a free Render account and provide a free
-   Neon pooled `DATABASE_URL` through the secret prompt.
-2. Verify the co-located three-process demo topology from the reviewed image.
-3. Recapture evidence from the hosted commit, add the public URL, complete the
-   PR checks, merge, and publish `v0.1.0`.
+1. Publish the `v0.1.0` GitHub release from the verified main commit.
+2. Start no post-MVP ticket until the release metadata is complete.
 
 ## Decisions
 
@@ -175,24 +180,21 @@ PostgreSQL.
 
 ## Open questions
 
-Render and Neon account authorization may require Fabio to complete provider
-login if no authenticated session exists.
+None for WOP-305.
 
 ## Next step
 
-Connect the free Render Blueprint and Neon database, then verify the hosted
-journey.
+Publish the verified `v0.1.0` GitHub release, then wait for explicit direction
+before promoting a post-MVP ticket.
 
 ## Pending validation
 
-Full local Quality, draft PR Quality, hosted deployment verification, hosted
-evidence recapture, merge Quality, and the `v0.1.0` release remain pending.
+Only the `v0.1.0` GitHub release metadata remains pending.
 
 ## Continuation prompt
 
 ```text
-Continue WOP-305 from issue #29 and branch agent/public-demo-release. The code,
-image and local browser evidence are prepared. Use the zero-cost Render web +
-Key Value and Neon PostgreSQL topology. Deploy, verify fictional redacted data,
-recapture hosted evidence, complete the PR, merge, and publish v0.1.0.
+WOP-305 is deployed at https://afterhook.onrender.com and its product checks
+are complete. Publish the `v0.1.0` GitHub release from verified main, then wait
+for explicit direction before promoting a post-MVP ticket.
 ```
