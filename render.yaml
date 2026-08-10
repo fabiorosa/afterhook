@@ -14,7 +14,6 @@ services:
     region: ohio
     autoDeployTrigger: checksPass
     healthCheckPath: /health
-    maxShutdownDelaySeconds: 30
     envVars:
       - key: DATABASE_URL
         sync: false
