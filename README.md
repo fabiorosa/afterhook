@@ -114,7 +114,7 @@ documented public-demo topology and its limits.
 
 ## First release
 
-The MVP release candidate proves one complete local journey:
+The `v0.1.0` MVP proves one complete local journey:
 
 1. create an endpoint and destination;
 2. send a signed webhook;

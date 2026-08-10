@@ -123,17 +123,20 @@ Updated: 2026-08-10.
 - PR #33 fixed the hosted console's native filter contrast. Main Quality run
   `31429084747` passed, the Render deploy is live, and public event-list plus
   dead-letter-detail screenshots are checked in under `docs/evidence`.
+- PR #34 published those evidence documents. Main Quality run `31430697553`
+  passed for merge `8eea4c0`; GitHub release `v0.1.0` now targets that commit,
+  the repository homepage points to the public demo, and GitHub issue #29 is
+  closed.
 
 ## In progress
 
-WOP-305 release metadata is being finalized after live verification. The paid
-Railway path was rejected as unsuitable for a portfolio demo. The released
-zero-cost topology is Render web + Key Value with Neon PostgreSQL.
+WOP-305 is complete. The paid Railway path was rejected as unsuitable for a
+portfolio demo. The released zero-cost topology is Render web + Key Value with
+Neon PostgreSQL.
 
 ## Pending work
 
-1. Publish the `v0.1.0` GitHub release from the verified main commit.
-2. Start no post-MVP ticket until the release metadata is complete.
+1. Start no post-MVP ticket without explicit portfolio direction.
 
 ## Decisions
 
@@ -184,17 +187,17 @@ None for WOP-305.
 
 ## Next step
 
-Publish the verified `v0.1.0` GitHub release, then wait for explicit direction
-before promoting a post-MVP ticket.
+Wait for explicit direction before promoting a post-MVP ticket.
 
 ## Pending validation
 
-Only the `v0.1.0` GitHub release metadata remains pending.
+No WOP-305 validation remains pending.
 
 ## Continuation prompt
 
 ```text
-WOP-305 is deployed at https://afterhook.onrender.com and its product checks
-are complete. Publish the `v0.1.0` GitHub release from verified main, then wait
-for explicit direction before promoting a post-MVP ticket.
+WOP-305 is complete and released as `v0.1.0` at
+https://github.com/fabiorosa/afterhook/releases/tag/v0.1.0. The public demo is
+https://afterhook.onrender.com. Wait for explicit direction before promoting a
+post-MVP ticket.
 ```
