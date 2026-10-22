@@ -60,6 +60,7 @@ $env:TEST_REDIS_URL = "redis://127.0.0.1:56379/15"
 $env:SECRET_ENCRYPTION_KEY = node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 $env:AFTERHOOK_DEMO_ENABLED = "true"
 $env:AFTERHOOK_DEMO_DESTINATION_ORIGIN = "http://127.0.0.1:3201"
+$env:AFTERHOOK_OPERATORS = '[{"id":"operator-a","token":"replace-with-a-24-character-minimum-secret"},{"id":"operator-b","token":"replace-with-another-24-character-secret"}]'
 npm --workspace @afterhook/api run db:migrate
 npm run build
 npm run quality

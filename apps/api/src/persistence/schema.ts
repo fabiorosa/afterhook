@@ -116,3 +116,20 @@ export const activityEvents = pgTable("activity_events", {
     .notNull()
     .defaultNow(),
 });
+
+export const approvalRequests = pgTable("approval_requests", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  eventId: uuid("event_id")
+    .notNull()
+    .references(() => events.id, { onDelete: "cascade" }),
+  requesterId: text("requester_id").notNull(),
+  requesterReason: text("requester_reason").notNull(),
+  state: text("state").notNull().default("PENDING"),
+  approverId: text("approver_id"),
+  decisionReason: text("decision_reason"),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  decidedAt: timestamp("decided_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});

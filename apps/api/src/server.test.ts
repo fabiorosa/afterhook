@@ -65,6 +65,7 @@ const eventDetail: EventDetail = {
   ],
   attempts: [],
   manualRetry: { allowed: false, reason: "DELIVERY_ACTIVE" },
+  approval: null,
 };
 
 function createRepository(
@@ -86,6 +87,7 @@ function createRepository(
     findEventDetail: (id) =>
       Promise.resolve(id === eventId ? eventDetail : null),
     requestManualRetry: () => Promise.resolve({ outcome: "not_allowed" }),
+    decideApproval: () => Promise.resolve({ outcome: "not_found" }),
     createDemoEvent: () => Promise.resolve({ eventId, duplicate: false }),
     resetDemo: () => Promise.resolve({ deletedEvents: 0 }),
   };
@@ -421,6 +423,7 @@ describe("ingestion HTTP contract", () => {
           readWorkerHeartbeat: () => Promise.resolve(null),
           close: () => Promise.resolve(),
         },
+        operators: [{ id: "operator-a", token: "a".repeat(24) }],
       },
     );
 
@@ -544,7 +547,12 @@ describe("event inspection HTTP contract", () => {
       {
         ...createRepository(),
         requestManualRetry: () =>
-          Promise.resolve({ outcome: "accepted", eventId, attemptNumber: 4 }),
+          Promise.resolve({
+            outcome: "pending",
+            eventId,
+            approvalId: "06d34f0a-e515-4e39-a4ce-736f7678a34a",
+            expiresAt: new Date("2026-08-06T04:00:00.000Z"),
+          }),
       },
       {
         eventQueue: {
@@ -557,23 +565,29 @@ describe("event inspection HTTP contract", () => {
           readWorkerHeartbeat: () => Promise.resolve(null),
           close: () => Promise.resolve(),
         },
+        operators: [{ id: "operator-a", token: "a".repeat(24) }],
       },
     );
 
     const response = await retryApp.inject({
       method: "POST",
       url: `/v1/events/${eventId}/retry`,
-      payload: {},
+      headers: {
+        "x-afterhook-operator-id": "operator-a",
+        "x-afterhook-operator-token": "a".repeat(24),
+      },
+      payload: { reason: "Investigate the destination failure." },
     });
 
     expect(response.statusCode).toBe(202);
     expect(response.json()).toEqual({
       accepted: true,
       eventId,
-      attemptNumber: 4,
-      status: "QUEUED",
+      approvalId: "06d34f0a-e515-4e39-a4ce-736f7678a34a",
+      status: "PENDING",
+      expiresAt: "2026-08-06T04:00:00.000Z",
     });
-    expect(queuedAttempt).toBe(4);
+    expect(queuedAttempt).toBeUndefined();
     expect(response.body).not.toContain("private detail");
   });
 
@@ -585,14 +599,21 @@ describe("event inspection HTTP contract", () => {
     ] as const;
 
     for (const [outcome, statusCode, error] of outcomes) {
-      const retryApp = buildServer({
-        ...createRepository(),
-        requestManualRetry: () => Promise.resolve({ outcome }),
-      });
+      const retryApp = buildServer(
+        {
+          ...createRepository(),
+          requestManualRetry: () => Promise.resolve({ outcome }),
+        },
+        { operators: [{ id: "operator-a", token: "a".repeat(24) }] },
+      );
       const response = await retryApp.inject({
         method: "POST",
         url: `/v1/events/${eventId}/retry`,
-        payload: {},
+        headers: {
+          "x-afterhook-operator-id": "operator-a",
+          "x-afterhook-operator-token": "a".repeat(24),
+        },
+        payload: { reason: "Investigate the destination failure." },
       });
       expect(response.statusCode).toBe(statusCode);
       expect(response.json()).toMatchObject({ error });
@@ -601,7 +622,7 @@ describe("event inspection HTTP contract", () => {
     const invalid = await app.inject({
       method: "POST",
       url: "/v1/events/not-a-uuid/retry",
-      payload: {},
+      payload: { reason: "Investigate the destination failure." },
     });
     expect(invalid.statusCode).toBe(404);
     expect(invalid.json()).toMatchObject({ error: "EVENT_NOT_FOUND" });

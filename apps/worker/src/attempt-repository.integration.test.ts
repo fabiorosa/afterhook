@@ -22,7 +22,7 @@ const attempts = createAttemptRepository(databaseUrl, cipher, {
 beforeEach(async () => {
   currentTime = new Date("2026-08-05T20:01:00.000Z");
   await client.unsafe(
-    'TRUNCATE TABLE "activity_events", "delivery_attempts", "events", "destinations", "endpoints"',
+    'TRUNCATE TABLE "approval_requests", "activity_events", "delivery_attempts", "events", "destinations", "endpoints"',
   );
 });
 

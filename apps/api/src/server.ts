@@ -16,6 +16,8 @@ import {
   manualRetryErrorSchema,
   manualRetryInputSchema,
   manualRetryResponseSchema,
+  approvalDecisionInputSchema,
+  approvalDecisionResponseSchema,
   demoStatusSchema,
   resetDemoInputSchema,
   resetDemoResponseSchema,
@@ -31,6 +33,7 @@ import {
   verifyWebhookSignature,
 } from "@afterhook/domain";
 import type { EventQueue } from "@afterhook/orchestration";
+import { timingSafeEqual } from "node:crypto";
 import Fastify, { type FastifyInstance } from "fastify";
 import { z } from "zod";
 
@@ -55,7 +58,25 @@ type ServerOptions = Readonly<{
   now?: () => Date;
   eventQueue?: EventQueue;
   demo?: Readonly<{ enabled: boolean; destinationOrigin: string }>;
+  operators?: readonly Readonly<{ id: string; token: string }>[];
 }>;
+
+function authenticateOperator(
+  request: { headers: Record<string, string | string[] | undefined> },
+  operators: readonly Readonly<{ id: string; token: string }>[],
+): string | null {
+  const id = request.headers["x-afterhook-operator-id"];
+  const token = request.headers["x-afterhook-operator-token"];
+  if (typeof id !== "string" || typeof token !== "string") return null;
+  const operator = operators.find((candidate) => candidate.id === id);
+  if (operator === undefined) return null;
+  const expected = Buffer.from(operator.token);
+  const received = Buffer.from(token);
+  return expected.length === received.length &&
+    timingSafeEqual(expected, received)
+    ? operator.id
+    : null;
+}
 
 function ingestionError(
   error:
@@ -120,6 +141,7 @@ export function buildServer(
     enabled: false,
     destinationOrigin: "http://127.0.0.1:3201",
   };
+  const operators = options.operators ?? [];
 
   app.removeContentTypeParser("application/json");
   app.addContentTypeParser(
@@ -282,8 +304,27 @@ export function buildServer(
       });
     }
 
+    if (operators.length === 0) {
+      return reply.code(503).send(
+        manualRetryErrorSchema.parse({
+          error: "OPERATOR_UNAVAILABLE",
+          message: "Manual recovery requires configured operator identities.",
+        }),
+      );
+    }
+    const requesterId = authenticateOperator(request, operators);
+    if (requesterId === null) {
+      return reply.code(401).send(
+        manualRetryErrorSchema.parse({
+          error: "OPERATOR_REJECTED",
+          message: "A trusted operator identity is required.",
+        }),
+      );
+    }
     const result = await repository.requestManualRetry(
       params.data.eventId,
+      requesterId,
+      input.data.reason,
       now(),
     );
     if (result.outcome === "not_found") {
@@ -312,19 +353,79 @@ export function buildServer(
       );
     }
 
-    try {
-      await eventQueue.enqueueManual(result.eventId, result.attemptNumber);
-    } catch {
-      // PostgreSQL retains the retry reservation for worker reconciliation.
-    }
     return reply.code(202).send(
       manualRetryResponseSchema.parse({
         accepted: true,
         eventId: result.eventId,
-        attemptNumber: result.attemptNumber,
-        status: "QUEUED",
+        approvalId: result.approvalId,
+        status: "PENDING",
+        expiresAt: result.expiresAt.toISOString(),
       }),
     );
+  });
+
+  app.post("/v1/approvals/:approvalId/decision", async (request, reply) => {
+    const params = z.object({ approvalId: z.uuid() }).safeParse(request.params);
+    const input = approvalDecisionInputSchema.safeParse(request.body);
+    if (!params.success) {
+      return reply.code(404).send({
+        error: "APPROVAL_NOT_FOUND",
+        message: "The approval could not be found.",
+      });
+    }
+    if (!input.success) {
+      return reply.code(400).send({
+        error: "VALIDATION_ERROR",
+        message: "Request validation failed.",
+        issues: input.error.issues,
+      });
+    }
+    const approverId = authenticateOperator(request, operators);
+    if (approverId === null) {
+      return reply.code(401).send({
+        error: "OPERATOR_REJECTED",
+        message: "A trusted operator identity is required.",
+      });
+    }
+    const result = await repository.decideApproval(
+      params.data.approvalId,
+      approverId,
+      input.data.decision,
+      input.data.reason,
+      now(),
+    );
+    if (result.outcome === "not_found")
+      return reply.code(404).send({
+        error: "APPROVAL_NOT_FOUND",
+        message: "The approval could not be found.",
+      });
+    if (result.outcome === "expired")
+      return reply.code(409).send({
+        error: "APPROVAL_EXPIRED",
+        message: "The approval expired before a decision.",
+      });
+    if (result.outcome === "not_allowed")
+      return reply.code(409).send({
+        error: "APPROVAL_NOT_ALLOWED",
+        message: "A distinct operator and an eligible event are required.",
+      });
+    if (result.outcome === "approved") {
+      try {
+        await eventQueue.enqueueManual(result.eventId, result.attemptNumber);
+      } catch {
+        // PostgreSQL retains the retry reservation for worker reconciliation.
+      }
+      return approvalDecisionResponseSchema.parse({
+        approvalId: result.approvalId,
+        state: "APPROVED",
+        attemptNumber: result.attemptNumber,
+      });
+    }
+    return approvalDecisionResponseSchema.parse({
+      approvalId: result.approvalId,
+      state: "DENIED",
+      attemptNumber: null,
+    });
   });
 
   app.post("/v1/endpoints", async (request, reply) => {

@@ -38,6 +38,16 @@ type EventDetail = EventListItem &
       allowed: boolean;
       reason: "AVAILABLE" | "DELIVERY_ACTIVE" | "ALREADY_DELIVERED";
     }>;
+    approval: Readonly<{
+      id: string;
+      state: "PENDING" | "APPROVED" | "DENIED" | "EXPIRED";
+      requesterId: string;
+      requesterReason: string;
+      approverId: string | null;
+      decisionReason: string | null;
+      expiresAt: string;
+      decidedAt: string | null;
+    }> | null;
   }>;
 
 function formatDate(value: string): string {
@@ -316,6 +326,10 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
+  const [operatorId, setOperatorId] = useState("");
+  const [operatorToken, setOperatorToken] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
+  const [decisionReason, setDecisionReason] = useState("");
   const [retryFeedback, setRetryFeedback] = useState<{
     kind: "success" | "error";
     message: string;
@@ -347,29 +361,20 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
     setRetrying(true);
     setRetryFeedback(null);
     try {
-      const result = await request<{ attemptNumber: number }>(
-        `/v1/events/${eventId}/retry`,
-        { method: "POST", body: "{}" },
-      );
+      await request(`/v1/events/${eventId}/retry`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-afterhook-operator-id": operatorId,
+          "x-afterhook-operator-token": operatorToken,
+        },
+        body: JSON.stringify({ reason: recoveryReason }),
+      });
       setRetryFeedback({
         kind: "success",
-        message: `Manual attempt ${String(result.attemptNumber)} was safely queued.`,
+        message: "Recovery is pending an independent operator decision.",
       });
-      for (let poll = 0; poll < 40; poll += 1) {
-        const refreshed = await request<EventDetail>(`/v1/events/${eventId}`);
-        setEvent(refreshed);
-        if (["DELIVERED", "FAILED", "DEAD_LETTER"].includes(refreshed.status)) {
-          setRetryFeedback({
-            kind: refreshed.status === "DELIVERED" ? "success" : "error",
-            message:
-              refreshed.status === "DELIVERED"
-                ? `Manual attempt ${String(result.attemptNumber)} delivered successfully.`
-                : `Manual attempt ${String(result.attemptNumber)} finished as ${statusLabels[refreshed.status].toLowerCase()}.`,
-          });
-          break;
-        }
-        await new Promise((resolve) => setTimeout(resolve, 250));
-      }
+      await loadEvent();
     } catch (caught) {
       setRetryFeedback({
         kind: "error",
@@ -377,6 +382,41 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
           caught instanceof Error
             ? caught.message
             : "Manual retry could not be requested.",
+      });
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  async function decideApproval(decision: "APPROVED" | "DENIED") {
+    if (event?.approval === null || event?.approval === undefined) return;
+    setRetrying(true);
+    setRetryFeedback(null);
+    try {
+      await request(`/v1/approvals/${event.approval.id}/decision`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-afterhook-operator-id": operatorId,
+          "x-afterhook-operator-token": operatorToken,
+        },
+        body: JSON.stringify({ decision, reason: decisionReason || undefined }),
+      });
+      setRetryFeedback({
+        kind: "success",
+        message:
+          decision === "APPROVED"
+            ? "Recovery was approved and one manual attempt was scheduled."
+            : "Recovery was denied. No delivery attempt was created.",
+      });
+      await loadEvent();
+    } catch (caught) {
+      setRetryFeedback({
+        kind: "error",
+        message:
+          caught instanceof Error
+            ? caught.message
+            : "Approval decision could not be recorded.",
       });
     } finally {
       setRetrying(false);
@@ -473,23 +513,101 @@ function EventDetailView({ eventId }: Readonly<{ eventId: string }>) {
             <div>
               <h2 id="recovery-title">Manual recovery</h2>
               <p>
-                {event.manualRetry.reason === "AVAILABLE"
-                  ? "Create one new attempt without changing the existing delivery history."
-                  : event.manualRetry.reason === "ALREADY_DELIVERED"
-                    ? "No retry is needed because the destination accepted this event."
-                    : "Manual retry stays unavailable while delivery is queued or running."}
+                {event.approval?.state === "PENDING"
+                  ? `Requested by ${event.approval.requesterId}. A different trusted operator must decide by ${formatDate(event.approval.expiresAt)}.`
+                  : event.manualRetry.reason === "AVAILABLE"
+                    ? "Request one new attempt. A different trusted operator must approve it before delivery begins."
+                    : event.manualRetry.reason === "ALREADY_DELIVERED"
+                      ? "No retry is needed because the destination accepted this event."
+                      : "Manual retry stays unavailable while delivery is queued or running."}
               </p>
             </div>
-            <button
-              className={
-                !event.manualRetry.allowed ? "unavailable-action" : undefined
-              }
-              disabled={!event.manualRetry.allowed || retrying}
-              type="button"
-              onClick={() => void retryEvent()}
-            >
-              {retrying ? "Requesting retry…" : "Retry delivery"}
-            </button>
+            {event.approval?.state === "PENDING" ? (
+              <div className="approval-actions">
+                <button
+                  disabled={retrying}
+                  type="button"
+                  onClick={() => void decideApproval("APPROVED")}
+                >
+                  {retrying ? "Recording…" : "Approve recovery"}
+                </button>
+                <button
+                  className="quiet-button"
+                  disabled={retrying}
+                  type="button"
+                  onClick={() => void decideApproval("DENIED")}
+                >
+                  Deny
+                </button>
+              </div>
+            ) : (
+              <button
+                className={
+                  !event.manualRetry.allowed ? "unavailable-action" : undefined
+                }
+                disabled={
+                  !event.manualRetry.allowed ||
+                  retrying ||
+                  operatorId === "" ||
+                  operatorToken === "" ||
+                  recoveryReason.length < 3
+                }
+                type="button"
+                onClick={() => void retryEvent()}
+              >
+                {retrying ? "Requesting…" : "Request recovery"}
+              </button>
+            )}
+          </section>
+          <section className="operator-identity">
+            <label>
+              Operator ID
+              <input
+                value={operatorId}
+                onChange={(event) => {
+                  setOperatorId(event.target.value);
+                }}
+                autoComplete="username"
+              />
+            </label>
+            <label>
+              Access token
+              <input
+                value={operatorToken}
+                onChange={(event) => {
+                  setOperatorToken(event.target.value);
+                }}
+                autoComplete="current-password"
+                type="password"
+              />
+            </label>
+            {event.approval?.state === "PENDING" ? (
+              <label>
+                Decision reason <span>optional</span>
+                <input
+                  value={decisionReason}
+                  onChange={(event) => {
+                    setDecisionReason(event.target.value);
+                  }}
+                />
+              </label>
+            ) : (
+              <label>
+                Recovery reason
+                <input
+                  value={recoveryReason}
+                  onChange={(event) => {
+                    setRecoveryReason(event.target.value);
+                  }}
+                  minLength={3}
+                  maxLength={240}
+                />
+              </label>
+            )}
+            <p>
+              Credentials stay only in this browser memory and are sent only to
+              verify this action.
+            </p>
           </section>
           {retryFeedback !== null ? (
             <p

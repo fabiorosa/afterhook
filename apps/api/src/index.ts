@@ -5,6 +5,7 @@ import {
 } from "@afterhook/orchestration";
 import fastifyStatic from "@fastify/static";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
 import { createPostgresRepository } from "./persistence/repository.js";
 import { buildServer } from "./server.js";
@@ -12,6 +13,16 @@ import { buildServer } from "./server.js";
 const databaseUrl = process.env.DATABASE_URL;
 const encryptionKey = process.env.SECRET_ENCRYPTION_KEY;
 const redisUrl = process.env.REDIS_URL;
+const operatorConfigSchema = z.array(
+  z
+    .object({ id: z.string().min(1).max(80), token: z.string().min(24) })
+    .strict(),
+);
+const operators = operatorConfigSchema.parse(
+  process.env.AFTERHOOK_OPERATORS === undefined
+    ? []
+    : JSON.parse(process.env.AFTERHOOK_OPERATORS),
+);
 
 if (
   databaseUrl === undefined ||
@@ -34,6 +45,7 @@ const app = buildServer(repository, {
     destinationOrigin:
       process.env.AFTERHOOK_DEMO_DESTINATION_ORIGIN ?? "http://127.0.0.1:3201",
   },
+  operators,
 });
 
 if (process.env.AFTERHOOK_SERVE_CONSOLE === "true") {

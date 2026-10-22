@@ -130,16 +130,15 @@ Updated: 2026-10-22.
 
 ## In progress
 
-WOP-401 is active through GitHub issue #36. It selected manual recovery that
-creates another HTTP delivery attempt as the first sensitive action requiring
-an independent human decision. The contract is in
-`docs/HUMAN_APPROVAL.md`. No approval or identity code is implemented in this
-research ticket.
+WOP-402 is active through GitHub issue #38. It adds configured, server-verified
+operator identities, a pending approval record with a 15-minute server-owned
+expiry, distinct requester and approver enforcement, and a transactional
+approval-to-attempt transition. Tokens are never persisted or returned.
 
 ## Pending work
 
-1. Finish and review WOP-401. Do not start WOP-402 until its trusted operator
-   identity boundary is explicitly scoped.
+1. Finish and review WOP-402. Do not start WOP-403 until bypass behavior is
+   explicitly scoped.
 
 ## Decisions
 
@@ -175,6 +174,8 @@ research ticket.
   authoritative and Render Key Value remains disposable coordination.
 - WOP-401 requires server-verified requester and approver identities before a
   sensitive manual recovery can be audited or create another delivery attempt.
+- WOP-402 uses configured opaque operator tokens as the smallest identity
+  boundary. It deliberately does not claim user accounts or RBAC.
 
 ## Dead ends
 
@@ -188,22 +189,21 @@ research ticket.
 
 ## Open questions
 
-WOP-402 must select the smallest trusted operator identity mechanism that does
-not preempt future workspace or role design.
+WOP-403 must prove retry, reconciliation, duplicate queue jobs, and stale
+approvals cannot bypass the pending, denied, or expired states.
 
 ## Next step
 
-Review and merge WOP-401. Then explicitly decide whether to promote WOP-402.
+Review and merge WOP-402. Then explicitly decide whether to promote WOP-403.
 
 ## Pending validation
 
-Documentation link, formatting, and repository checks for WOP-401.
+Full Quality workflow and review for WOP-402.
 
 ## Continuation prompt
 
 ```text
-WOP-401 defines the human approval boundary for sensitive manual recovery. Its
-contract is in `docs/HUMAN_APPROVAL.md`; GitHub issue #36 tracks review. Do not
-start WOP-402 until its trusted operator identity boundary is explicitly
-scoped.
+WOP-402 adds server-verified configured operator identities and a PostgreSQL
+approval state for sensitive manual recovery. GitHub issue #38 tracks review.
+Do not start WOP-403 until bypass behavior is explicitly scoped.
 ```
