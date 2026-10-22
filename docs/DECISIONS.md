@@ -262,3 +262,28 @@ host the persistent BullMQ worker. Render free web services sleep after 15
 minutes without inbound traffic and can take about one minute to wake. Neon
 free compute also scales to zero. These are explicit portfolio-demo limits,
 not uptime claims.
+
+## ADR-020: Approval requires trusted identity before another delivery
+
+**Status:** accepted.
+
+WOP-401 selects manual recovery of a failed or dead-letter event as the first
+sensitive action that needs an independent human decision. Replaying an event
+can repeat an external business side effect even when the delivery protocol is
+correctly idempotent.
+
+The existing product has no authenticated operator identity. A client-provided
+name, header, or form value cannot support an audit record or a distinct
+approver rule. WOP-402 must therefore add the smallest server-verified operator
+identity boundary required for a requester and a different approver. It must
+not pretend that untrusted labels are approval.
+
+Approval remains PostgreSQL-authoritative. A pending request cannot reserve an
+attempt or publish a queue job. In one approval transaction, a valid decision
+creates the scheduled manual attempt and safe activity evidence. Denial and
+expiry leave delivery state unchanged. WOP-403 will prove that retries and
+queue reconciliation cannot bypass the pending, denied, or expired states.
+
+This boundary also applies to the later structured AI step. AI may make a
+validated advisory recommendation from redacted input, but cannot approve or
+start external delivery.

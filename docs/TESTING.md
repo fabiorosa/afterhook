@@ -208,3 +208,14 @@ retryable-failure scenario reached `DEAD_LETTER` after three attempts; and
 `hosted-event-list.png` plus `hosted-failed-attempt-detail.png` were captured
 from the public console. The walkthrough video remains labeled as local
 real-process evidence rather than a claim about the hosted browser capture.
+
+## Post-MVP approval gates
+
+WOP-401 is a research and contract ticket, so it adds no runnable behavior.
+Its follow-on work must prove server-verified requester and approver identity,
+distinct-approver enforcement, expiry, append-only audit evidence, and a
+transactional approval-to-attempt transition. PostgreSQL integration coverage
+must prove that pending, denied, expired, duplicate, stale, and queue-replayed
+requests cannot start another delivery attempt. Browser coverage must prove the
+safe approval states without displaying payloads, credentials, URLs, or
+response bodies.

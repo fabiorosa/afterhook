@@ -1,6 +1,6 @@
 # Session state
 
-Updated: 2026-08-10.
+Updated: 2026-10-22.
 
 ## Completed and validated
 
@@ -130,13 +130,16 @@ Updated: 2026-08-10.
 
 ## In progress
 
-WOP-305 is complete. The paid Railway path was rejected as unsuitable for a
-portfolio demo. The released zero-cost topology is Render web + Key Value with
-Neon PostgreSQL.
+WOP-401 is active through GitHub issue #36. It selected manual recovery that
+creates another HTTP delivery attempt as the first sensitive action requiring
+an independent human decision. The contract is in
+`docs/HUMAN_APPROVAL.md`. No approval or identity code is implemented in this
+research ticket.
 
 ## Pending work
 
-1. Start no post-MVP ticket without explicit portfolio direction.
+1. Finish and review WOP-401. Do not start WOP-402 until its trusted operator
+   identity boundary is explicitly scoped.
 
 ## Decisions
 
@@ -170,6 +173,8 @@ Neon PostgreSQL.
 - WOP-305 uses one Docker image with separate Node.js processes co-located on a
   free Render web instance. Only the API port is public. Neon PostgreSQL remains
   authoritative and Render Key Value remains disposable coordination.
+- WOP-401 requires server-verified requester and approver identities before a
+  sensitive manual recovery can be audited or create another delivery attempt.
 
 ## Dead ends
 
@@ -183,21 +188,22 @@ Neon PostgreSQL.
 
 ## Open questions
 
-None for WOP-305.
+WOP-402 must select the smallest trusted operator identity mechanism that does
+not preempt future workspace or role design.
 
 ## Next step
 
-Wait for explicit direction before promoting a post-MVP ticket.
+Review and merge WOP-401. Then explicitly decide whether to promote WOP-402.
 
 ## Pending validation
 
-No WOP-305 validation remains pending.
+Documentation link, formatting, and repository checks for WOP-401.
 
 ## Continuation prompt
 
 ```text
-WOP-305 is complete and released as `v0.1.0` at
-https://github.com/fabiorosa/afterhook/releases/tag/v0.1.0. The public demo is
-https://afterhook.onrender.com. Wait for explicit direction before promoting a
-post-MVP ticket.
+WOP-401 defines the human approval boundary for sensitive manual recovery. Its
+contract is in `docs/HUMAN_APPROVAL.md`; GitHub issue #36 tracks review. Do not
+start WOP-402 until its trusted operator identity boundary is explicitly
+scoped.
 ```
