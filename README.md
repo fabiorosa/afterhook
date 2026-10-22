@@ -123,5 +123,6 @@ The `v0.1.0` MVP proves one complete local journey:
 5. inspect the delivery timeline;
 6. retry a failed delivery without creating uncontrolled duplicates.
 
-Read the [product brief](docs/PRODUCT.md), [MVP scope](docs/SCOPE.md), and
+Read the [product brief](docs/PRODUCT.md), [MVP scope](docs/SCOPE.md),
+[human approval boundary](docs/HUMAN_APPROVAL.md), and
 [executable backlog](docs/BACKLOG.md).

@@ -101,7 +101,8 @@ inspectable destination attempt and safe manual retry.
 Candidates are not commitments. Each requires evidence that it adds portfolio
 value without weakening the core product.
 
-1. Human approval step before a sensitive destination action.
+1. [Human approval step](HUMAN_APPROVAL.md) before a sensitive destination
+   action.
 2. Structured AI extraction with schema validation and approval.
 3. Multiple sequential workflow steps.
 4. CLI for sending fixtures and inspecting events.
