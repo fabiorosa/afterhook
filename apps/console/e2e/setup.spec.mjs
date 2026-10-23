@@ -351,24 +351,32 @@ test("completes the operator walkthrough across desktop, keyboard, privacy, and 
       fullPage: true,
     });
   }
-  const retryButton = page.getByRole("button", { name: "Retry delivery" });
+  await page.getByLabel("Operator ID").fill("operator-a");
+  await page.getByLabel("Access token").fill("a".repeat(24));
+  await page
+    .getByLabel("Recovery reason")
+    .fill("Investigate the controlled destination failure.");
+  const retryButton = page.getByRole("button", { name: "Request recovery" });
   await retryButton.focus();
   await expect(retryButton).toBeFocused();
   await page.keyboard.press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Approve recovery" }),
+  ).toBeVisible();
+  await page.getByLabel("Operator ID").fill("operator-b");
+  await page.getByLabel("Access token").fill("b".repeat(24));
+  await page.getByRole("button", { name: "Approve recovery" }).click();
   await expect
     .poll(async () => (await (await api.get(detailUrl)).json()).status, {
       timeout: 8_000,
     })
     .toBe("DELIVERED");
-  await expect(
-    page.getByText("Manual attempt 4 delivered successfully."),
-  ).toBeVisible();
-  await expect(page.getByText("Manual recovery requested")).toBeVisible();
+  await page.reload();
   await expect(page.getByText("Delivery started")).toHaveCount(4);
   await expect(page.getByText("Attempt 4", { exact: true })).toBeVisible();
   await expect(page.getByText("Delivered", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Retry delivery" }),
+    page.getByRole("button", { name: "Request recovery" }),
   ).toBeDisabled();
 
   await page.getByRole("button", { name: "Copy event diagnostics" }).click();

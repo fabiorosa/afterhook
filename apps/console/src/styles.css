@@ -676,6 +676,36 @@ button:disabled {
 .manual-recovery .unavailable-action {
   cursor: not-allowed;
 }
+.approval-actions {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 12px;
+}
+.operator-identity {
+  display: grid;
+  gap: 16px;
+  margin: -24px 0 48px;
+  max-width: 680px;
+}
+.operator-identity label {
+  color: #dce2da;
+  display: grid;
+  font:
+    700 12px/1.4 Arial,
+    sans-serif;
+  gap: 8px;
+}
+.operator-identity input {
+  max-width: 100%;
+}
+.operator-identity p {
+  color: #89928b;
+  font:
+    14px/1.5 Arial,
+    sans-serif;
+  margin: 0;
+  max-width: 65ch;
+}
 .recovery-feedback {
   border-left: 3px solid #a7c99a;
   color: #d8ebd0;

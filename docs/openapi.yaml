@@ -303,21 +303,38 @@ paths:
         "404": { $ref: "#/components/responses/EventNotFound" }
   /v1/events/{eventId}/retry:
     post:
-      summary: Request one safe manual delivery attempt
-      parameters: [{ $ref: "#/components/parameters/EventId" }]
+      summary: Request approval for one safe manual delivery attempt
+      parameters:
+        [
+          { $ref: "#/components/parameters/EventId" },
+          { $ref: "#/components/parameters/OperatorId" },
+          { $ref: "#/components/parameters/OperatorToken" },
+        ]
       requestBody:
         {
           required: true,
           content:
             {
               application/json:
-                { schema: { type: object, additionalProperties: false } },
+                {
+                  schema:
+                    {
+                      type: object,
+                      required: [reason],
+                      additionalProperties: false,
+                      properties:
+                        {
+                          reason:
+                            { type: string, minLength: 3, maxLength: 240 },
+                        },
+                    },
+                },
             },
         }
       responses:
         "202":
           {
-            description: Retry reservation committed,
+            description: Approval request committed without a delivery attempt,
             content:
               {
                 application/json:
@@ -352,6 +369,20 @@ components:
         in: path,
         required: true,
         schema: { type: string, format: uuid },
+      }
+    OperatorId:
+      {
+        name: X-AfterHook-Operator-Id,
+        in: header,
+        required: true,
+        schema: { type: string },
+      }
+    OperatorToken:
+      {
+        name: X-AfterHook-Operator-Token,
+        in: header,
+        required: true,
+        schema: { type: string, minLength: 24 },
       }
   responses:
     ValidationError: { description: Invalid request shape }
@@ -512,6 +543,7 @@ components:
                   activities,
                   attempts,
                   manualRetry,
+                  approval,
                 ],
               properties:
                 {
@@ -520,6 +552,7 @@ components:
                   activities: { type: array },
                   attempts: { type: array },
                   manualRetry: { type: object },
+                  approval: { type: [object, "null"] },
                 },
             },
           ],
@@ -527,13 +560,14 @@ components:
     ManualRetry:
       {
         type: object,
-        required: [accepted, eventId, attemptNumber, status],
+        required: [accepted, eventId, approvalId, status, expiresAt],
         properties:
           {
             accepted: { const: true },
             eventId: { type: string, format: uuid },
-            attemptNumber: { type: integer, minimum: 1 },
-            status: { const: QUEUED },
+            approvalId: { type: string, format: uuid },
+            status: { const: PENDING },
+            expiresAt: { type: string, format: date-time },
           },
       }
     RetryError:
@@ -544,7 +578,14 @@ components:
           {
             error:
               {
-                enum: [EVENT_NOT_FOUND, RETRY_NOT_ALLOWED, RETRY_RATE_LIMITED],
+                enum:
+                  [
+                    EVENT_NOT_FOUND,
+                    RETRY_NOT_ALLOWED,
+                    RETRY_RATE_LIMITED,
+                    OPERATOR_UNAVAILABLE,
+                    OPERATOR_REJECTED,
+                  ],
               },
             message: { type: string },
           },

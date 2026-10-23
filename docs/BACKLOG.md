@@ -58,11 +58,11 @@ this gate passes.
 
 ## Phase 4: Human approval
 
-| ID      | Ticket                                                                                  | Status |
-| ------- | --------------------------------------------------------------------------------------- | ------ |
-| WOP-401 | Define the human approval boundary for sensitive manual recovery. GitHub #36            | active |
-| WOP-402 | Add trusted operator identity and approval state with reason, expiry, and audit history | todo   |
-| WOP-403 | Prove that retries cannot bypass approval                                               | todo   |
+| ID      | Ticket                                                                                              | Status |
+| ------- | --------------------------------------------------------------------------------------------------- | ------ |
+| WOP-401 | Define the human approval boundary for sensitive manual recovery. GitHub #36                        | done   |
+| WOP-402 | Add trusted operator identity and approval state with reason, expiry, and audit history. GitHub #38 | active |
+| WOP-403 | Prove that retries cannot bypass approval                                                           | todo   |
 
 **Gate:** automation pauses honestly and a human decision is recorded before
 the sensitive action continues.

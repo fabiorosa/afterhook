@@ -51,6 +51,10 @@ and may be rebuilt without losing product history.
 - `PORT` for the API when the platform assigns one
 - `AFTERHOOK_DEMO_ENABLED=true` only in an intentionally public fictional demo
 - `AFTERHOOK_DEMO_DESTINATION_ORIGIN` only for that demo's controlled target
+- `AFTERHOOK_OPERATORS`: JSON array of at least two distinct operator IDs and
+  24-character-minimum access tokens, supplied only through the secret manager.
+  Tokens are compared by the server and are never persisted, logged, or exposed
+  in event projections.
 
 Use independent database credentials with least privilege. Never share the
 test Redis database or local example key with a deployed environment.

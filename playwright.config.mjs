@@ -30,6 +30,8 @@ export default defineConfig({
         AFTERHOOK_DEMO_ENABLED: "true",
         AFTERHOOK_DEMO_DESTINATION_ORIGIN: "http://127.0.0.1:3201",
         SECRET_ENCRYPTION_KEY: "MDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWY=",
+        AFTERHOOK_OPERATORS:
+          '[{"id":"operator-a","token":"aaaaaaaaaaaaaaaaaaaaaaaa"},{"id":"operator-b","token":"bbbbbbbbbbbbbbbbbbbbbbbb"}]',
       },
     },
     {

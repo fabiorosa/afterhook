@@ -216,6 +216,18 @@ export const eventDetailSchema = eventListItemSchema.extend({
     allowed: z.boolean(),
     reason: z.enum(["AVAILABLE", "DELIVERY_ACTIVE", "ALREADY_DELIVERED"]),
   }),
+  approval: z
+    .object({
+      id: z.uuid(),
+      state: z.enum(["PENDING", "APPROVED", "DENIED", "EXPIRED"]),
+      requesterId: z.string().min(1).max(80),
+      requesterReason: z.string().min(1).max(240),
+      approverId: z.string().min(1).max(80).nullable(),
+      decisionReason: z.string().min(1).max(240).nullable(),
+      expiresAt: z.iso.datetime(),
+      decidedAt: z.iso.datetime().nullable(),
+    })
+    .nullable(),
 });
 
 export const eventInspectionErrorSchema = z.object({
@@ -226,15 +238,37 @@ export const eventInspectionErrorSchema = z.object({
 export const manualRetryResponseSchema = z.object({
   accepted: z.literal(true),
   eventId: z.uuid(),
-  attemptNumber: z.number().int().positive(),
-  status: z.literal("QUEUED"),
+  approvalId: z.uuid(),
+  status: z.literal("PENDING"),
+  expiresAt: z.iso.datetime(),
 });
 
-export const manualRetryInputSchema = z.object({}).strict();
+export const manualRetryInputSchema = z
+  .object({ reason: z.string().trim().min(3).max(240) })
+  .strict();
 
 export const manualRetryErrorSchema = z.object({
-  error: z.enum(["EVENT_NOT_FOUND", "RETRY_NOT_ALLOWED", "RETRY_RATE_LIMITED"]),
+  error: z.enum([
+    "EVENT_NOT_FOUND",
+    "RETRY_NOT_ALLOWED",
+    "RETRY_RATE_LIMITED",
+    "OPERATOR_UNAVAILABLE",
+    "OPERATOR_REJECTED",
+  ]),
   message: z.string(),
+});
+
+export const approvalDecisionInputSchema = z
+  .object({
+    decision: z.enum(["APPROVED", "DENIED"]),
+    reason: z.string().trim().min(3).max(240).optional(),
+  })
+  .strict();
+
+export const approvalDecisionResponseSchema = z.object({
+  approvalId: z.uuid(),
+  state: z.enum(["APPROVED", "DENIED"]),
+  attemptNumber: z.number().int().positive().nullable(),
 });
 
 export const demoScenarioSchema = z.enum([

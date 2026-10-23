@@ -22,7 +22,7 @@ const repository = createPostgresRepository(
 
 beforeEach(async () => {
   await client.unsafe(
-    'TRUNCATE TABLE "activity_events", "delivery_attempts", "events", "destinations", "endpoints"',
+    'TRUNCATE TABLE "approval_requests", "activity_events", "delivery_attempts", "events", "destinations", "endpoints"',
   );
 });
 
@@ -457,7 +457,12 @@ describe("event persistence", () => {
 
     const outcomes = await Promise.all(
       Array.from({ length: 8 }, () =>
-        repository.requestManualRetry(persisted.eventId, requestedAt),
+        repository.requestManualRetry(
+          persisted.eventId,
+          "operator-a",
+          "Investigate the destination failure.",
+          requestedAt,
+        ),
       ),
     );
     const attempts = await client<
@@ -474,25 +479,23 @@ describe("event persistence", () => {
     `;
     const activityRows = await client<{ type: string }[]>`
       SELECT type FROM activity_events
-      WHERE event_id = ${persisted.eventId} AND type = 'retry.manual_requested'
+      WHERE event_id = ${persisted.eventId} AND type = 'retry.approval_requested'
     `;
 
     expect(
-      outcomes.filter((outcome) => outcome.outcome === "accepted"),
+      outcomes.filter((outcome) => outcome.outcome === "pending"),
     ).toHaveLength(1);
     expect(
       outcomes.filter((outcome) => outcome.outcome === "not_allowed"),
     ).toHaveLength(7);
-    expect(attempts).toEqual([
-      { attempt_number: 4, trigger: "MANUAL", status: "SCHEDULED" },
-    ]);
+    expect(attempts).toEqual([]);
     expect(eventRows).toEqual([
-      { status: "QUEUED", next_attempt_at: requestedAt },
+      { status: "DEAD_LETTER", next_attempt_at: null },
     ]);
-    expect(activityRows).toEqual([{ type: "retry.manual_requested" }]);
+    expect(activityRows).toEqual([{ type: "retry.approval_requested" }]);
   });
 
-  it("rate limits repeated manual recovery reservations", async () => {
+  it("does not replace a pending manual recovery approval", async () => {
     const input = await createEventInput();
     const persisted = await repository.persistEvent(input);
     if (persisted.outcome === "conflict") throw new Error("Event conflicted.");
@@ -501,27 +504,20 @@ describe("event persistence", () => {
       UPDATE events SET status = 'FAILED' WHERE id = ${persisted.eventId}
     `;
     await expect(
-      repository.requestManualRetry(persisted.eventId, firstAt),
-    ).resolves.toMatchObject({ outcome: "accepted", attemptNumber: 1 });
-    await client`
-      UPDATE delivery_attempts
-      SET status = 'RUNNING', started_at = ${firstAt}
-      WHERE event_id = ${persisted.eventId}
-    `;
-    await client`
-      UPDATE delivery_attempts
-      SET status = 'TERMINAL_FAILURE', finished_at = ${firstAt}
-      WHERE event_id = ${persisted.eventId}
-    `;
-    await client`
-      UPDATE events SET status = 'FAILED' WHERE id = ${persisted.eventId}
-    `;
-
+      repository.requestManualRetry(
+        persisted.eventId,
+        "operator-a",
+        "Investigate the destination failure.",
+        firstAt,
+      ),
+    ).resolves.toMatchObject({ outcome: "pending" });
     await expect(
       repository.requestManualRetry(
         persisted.eventId,
+        "operator-a",
+        "Investigate the destination failure.",
         new Date(firstAt.getTime() + 1_000),
       ),
-    ).resolves.toEqual({ outcome: "rate_limited" });
+    ).resolves.toEqual({ outcome: "not_allowed" });
   });
 });

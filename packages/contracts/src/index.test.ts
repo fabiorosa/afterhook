@@ -186,6 +186,7 @@ describe("event inspection contracts", () => {
         ],
         attempts: [],
         manualRetry: { allowed: false, reason: "DELIVERY_ACTIVE" },
+        approval: null,
       }),
     ).toMatchObject({ payloadRedacted: { token: "[REDACTED]" } });
   });
@@ -195,10 +196,11 @@ describe("event inspection contracts", () => {
       manualRetryResponseSchema.parse({
         accepted: true,
         eventId: event.id,
-        attemptNumber: 4,
-        status: "QUEUED",
+        approvalId: "17bfabde-4c6c-4722-a3a2-6c9c9e77e49c",
+        status: "PENDING",
+        expiresAt: "2026-08-06T04:00:00.000Z",
       }),
-    ).toMatchObject({ attemptNumber: 4 });
+    ).toMatchObject({ status: "PENDING" });
     expect(
       manualRetryErrorSchema.parse({
         error: "RETRY_NOT_ALLOWED",

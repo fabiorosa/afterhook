@@ -25,6 +25,7 @@ import postgres from "postgres";
 
 import {
   activityEvents,
+  approvalRequests,
   deliveryAttempts,
   destinations,
   endpoints,
@@ -46,13 +47,26 @@ export type PersistEventOutcome =
 
 export type ManualRetryOutcome =
   | Readonly<{
-      outcome: "accepted";
+      outcome: "pending";
       eventId: string;
-      attemptNumber: number;
+      approvalId: string;
+      expiresAt: Date;
     }>
   | Readonly<{ outcome: "not_found" }>
   | Readonly<{ outcome: "not_allowed" }>
   | Readonly<{ outcome: "rate_limited" }>;
+
+export type ApprovalDecisionOutcome =
+  | Readonly<{
+      outcome: "approved";
+      eventId: string;
+      approvalId: string;
+      attemptNumber: number;
+    }>
+  | Readonly<{ outcome: "denied"; approvalId: string }>
+  | Readonly<{ outcome: "not_found" }>
+  | Readonly<{ outcome: "not_allowed" }>
+  | Readonly<{ outcome: "expired"; approvalId: string }>;
 
 export class DestinationUnavailableError extends Error {
   constructor() {
@@ -75,8 +89,17 @@ export type SetupRepository = Readonly<{
   findEventDetail: (eventId: string) => Promise<EventDetail | null>;
   requestManualRetry: (
     eventId: string,
+    requesterId: string,
+    requesterReason: string,
     requestedAt: Date,
   ) => Promise<ManualRetryOutcome>;
+  decideApproval: (
+    approvalId: string,
+    approverId: string,
+    decision: "APPROVED" | "DENIED",
+    decisionReason: string | undefined,
+    decidedAt: Date,
+  ) => Promise<ApprovalDecisionOutcome>;
   createDemoEvent: (input: {
     scenario: DemoScenario;
     destinationOrigin: string;
@@ -466,6 +489,12 @@ export function createSetupRepository(
         .from(deliveryAttempts)
         .where(eq(deliveryAttempts.eventId, eventId))
         .orderBy(asc(deliveryAttempts.attemptNumber));
+      const [approval] = await database
+        .select()
+        .from(approvalRequests)
+        .where(eq(approvalRequests.eventId, eventId))
+        .orderBy(desc(approvalRequests.createdAt))
+        .limit(1);
 
       return {
         ...toEventListItem(row),
@@ -492,9 +521,31 @@ export function createSetupRepository(
         manualRetry: getManualRetryEligibility(
           eventStatusSchema.parse(row.status),
         ),
+        approval:
+          approval === undefined
+            ? null
+            : {
+                id: approval.id,
+                state: approval.state as
+                  "PENDING" | "APPROVED" | "DENIED" | "EXPIRED",
+                requesterId: approval.requesterId,
+                requesterReason: approval.requesterReason,
+                approverId: approval.approverId,
+                decisionReason: approval.decisionReason,
+                expiresAt: toIsoDate(approval.expiresAt),
+                decidedAt:
+                  approval.decidedAt === null
+                    ? null
+                    : toIsoDate(approval.decidedAt),
+              },
       };
     },
-    async requestManualRetry(eventId, requestedAt) {
+    async requestManualRetry(
+      eventId,
+      requesterId,
+      requesterReason,
+      requestedAt,
+    ) {
       return database.transaction(async (transaction) => {
         const [event] = await transaction
           .select({ id: events.id, status: events.status })
@@ -540,44 +591,137 @@ export function createSetupRepository(
           return { outcome: "rate_limited" } as const;
         }
 
+        const expiresAt = new Date(requestedAt.getTime() + 15 * 60 * 1_000);
+        const [approval] = await transaction
+          .insert(approvalRequests)
+          .values({
+            eventId,
+            requesterId,
+            requesterReason,
+            expiresAt,
+          })
+          .onConflictDoNothing()
+          .returning({ id: approvalRequests.id });
+        if (approval === undefined) return { outcome: "not_allowed" } as const;
+        await transaction.insert(activityEvents).values({
+          eventId,
+          type: "retry.approval_requested",
+          metadata: { requesterId, expiresAt: toIsoDate(expiresAt) },
+          createdAt: requestedAt,
+        });
+
+        return {
+          outcome: "pending",
+          eventId,
+          approvalId: approval.id,
+          expiresAt,
+        } as const;
+      });
+    },
+    async decideApproval(
+      approvalId,
+      approverId,
+      decision,
+      decisionReason,
+      decidedAt,
+    ) {
+      return database.transaction(async (transaction) => {
+        const [approval] = await transaction
+          .select()
+          .from(approvalRequests)
+          .where(eq(approvalRequests.id, approvalId))
+          .for("update")
+          .limit(1);
+        if (approval === undefined) return { outcome: "not_found" } as const;
+        if (approval.state !== "PENDING")
+          return { outcome: "not_allowed" } as const;
+        if (approval.expiresAt <= decidedAt) {
+          await transaction
+            .update(approvalRequests)
+            .set({ state: "EXPIRED", decidedAt })
+            .where(eq(approvalRequests.id, approvalId));
+          await transaction.insert(activityEvents).values({
+            eventId: approval.eventId,
+            type: "retry.approval_expired",
+            metadata: { approvalId },
+            createdAt: decidedAt,
+          });
+          return { outcome: "expired", approvalId } as const;
+        }
+        if (approval.requesterId === approverId) {
+          return { outcome: "not_allowed" } as const;
+        }
+        if (decision === "DENIED") {
+          await transaction
+            .update(approvalRequests)
+            .set({ state: "DENIED", approverId, decisionReason, decidedAt })
+            .where(eq(approvalRequests.id, approvalId));
+          await transaction.insert(activityEvents).values({
+            eventId: approval.eventId,
+            type: "retry.approval_denied",
+            metadata: { approvalId, approverId },
+            createdAt: decidedAt,
+          });
+          return { outcome: "denied", approvalId } as const;
+        }
+
+        const [event] = await transaction
+          .select({ status: events.status })
+          .from(events)
+          .where(eq(events.id, approval.eventId))
+          .for("update")
+          .limit(1);
+        if (
+          event === undefined ||
+          !getManualRetryEligibility(eventStatusSchema.parse(event.status))
+            .allowed
+        ) {
+          return { outcome: "not_allowed" } as const;
+        }
         const [lastAttempt] = await transaction
           .select({ attemptNumber: max(deliveryAttempts.attemptNumber) })
           .from(deliveryAttempts)
-          .where(eq(deliveryAttempts.eventId, eventId));
+          .where(eq(deliveryAttempts.eventId, approval.eventId));
         const attemptNumber = (lastAttempt?.attemptNumber ?? 0) + 1;
         const [attempt] = await transaction
           .insert(deliveryAttempts)
           .values({
-            eventId,
+            eventId: approval.eventId,
             attemptNumber,
             trigger: "MANUAL",
             status: "SCHEDULED",
-            scheduledAt: requestedAt,
+            scheduledAt: decidedAt,
             startedAt: null,
           })
           .returning({ id: deliveryAttempts.id });
-        if (attempt === undefined) {
+        if (attempt === undefined)
           throw new Error("Manual retry attempt was not reserved.");
-        }
-
+        await transaction
+          .update(approvalRequests)
+          .set({ state: "APPROVED", approverId, decisionReason, decidedAt })
+          .where(eq(approvalRequests.id, approvalId));
         await transaction
           .update(events)
           .set({
             status: "QUEUED",
             completedAt: null,
-            nextAttemptAt: requestedAt,
-            updatedAt: requestedAt,
+            nextAttemptAt: decidedAt,
+            updatedAt: decidedAt,
           })
-          .where(eq(events.id, eventId));
+          .where(eq(events.id, approval.eventId));
         await transaction.insert(activityEvents).values({
-          eventId,
+          eventId: approval.eventId,
           attemptId: attempt.id,
-          type: "retry.manual_requested",
-          metadata: { attemptNumber, trigger: "MANUAL" },
-          createdAt: requestedAt,
+          type: "retry.approval_approved",
+          metadata: { approvalId, approverId, attemptNumber },
+          createdAt: decidedAt,
         });
-
-        return { outcome: "accepted", eventId, attemptNumber } as const;
+        return {
+          outcome: "approved",
+          eventId: approval.eventId,
+          approvalId,
+          attemptNumber,
+        } as const;
       });
     },
     async createDestination(input) {
